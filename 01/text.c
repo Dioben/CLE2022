@@ -14,23 +14,49 @@ int readLetter(FILE * file){
     all "word-ending" chars are returned as \0 instead and we skip "word-bridgers" -> bridge with recursion?
     write down the masks at some point
     */
-   unsigned int readspot;
+   unsigned int readspot =0;
    fread(&readspot,1,1,file);
-   printf("read %u\n",readspot);
+   if (! (readspot >> 7)) //leftmost byte must be 0
+        return readspot;
+    else if(readspot<=223 && readspot>= 192){ //leftmost 2 bytes are 1, followed by 0 -> 128 and 64 are in, 32 is not
+        readspot<<=8;
+        fread(&readspot+1,1,1,file); //TODO: I have NO CLUE whether this works
+    }
+    else if (readspot<=239 && readspot>= 224){//leftmost 3 bytes are 1, followed by 0 -> 16 is not in, 224 min
+        readspot<<=16;
+        fread(&readspot+1,2,1,file);
+    } //TODO: I have NO CLUE whether this works
+    else if (readspot<=247 && readspot>= 240){//leftmost 4 bytes are 1, followed by 0 -> 8 is not in and there's a 240 minimum
+        readspot<<=24;
+        fread(&readspot+1,3,1,file); //TODO: I have NO CLUE whether this works
+    } 
+    else{
+        perror("Invalid text found");
+        return EOF;
+    }
 
-   return 0;
+   return readspot;
 }
 
 char readWord(FILE * file){
     /*
-    read chars with letter function until \0
+    read chars with letter function until \0 or EOF
     return a 3 bit value
     3-bit = is EOF
     2-bit : ends with consonant
     1-bit: begins with vowel
     */
-   
-   return 7;
+   char retval = 0;
+   unsigned int nextLetter = readLetter(file);
+   unsigned int letter;
+   //TODO: scrutinize first word
+   do{
+        letter = nextLetter;
+        nextLetter = readLetter(file);
+   }while(1);//TODO: figure out condition
+    //TODO: Scrutinize last char
+
+   return retval;
 }
 
 /*
