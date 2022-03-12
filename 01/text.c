@@ -19,27 +19,29 @@ int readLetter(FILE *file)
     size_t readBytes = fread(&readspot, 1, 1, file);
     if (readBytes != 1)
         return EOF;
+    int loops=0;
     if (!(readspot >> 7)) // leftmost byte is 0
         return readspot;
     else if (readspot <= 223 && readspot >= 192)
     { // leftmost 2 bytes are 1, followed by 0 -> 128 and 64 are in, 32 is not
-        readspot <<= 8;
-        fread(&readspot + 1, 1, 1, file); // TODO: I have NO CLUE whether this works
+        loops = 1;
     }
     else if (readspot <= 239 && readspot >= 224)
     { // leftmost 3 bytes are 1, followed by 0 -> 16 is not in, 224 min
-        readspot <<= 16;
-        fread(&readspot + 1, 2, 1, file); // TODO: I have NO CLUE whether this works
+        loops = 2;
     }
     else if (readspot <= 247 && readspot >= 240)
     { // leftmost 4 bytes are 1, followed by 0 -> 8 is not in and there's a 240 minimum
-        readspot <<= 24;
-        fread(&readspot + 1, 3, 1, file); // TODO: I have NO CLUE whether this works
+        loops = 3;
     }
     else
     {
         perror("Invalid text found");
         return EOF;
+    }
+    for(int i=0;i<loops;i++){
+        readspot <<= 8;
+        fread(&readspot, 1, 1, file);
     }
 
     return readspot;
@@ -142,7 +144,6 @@ char readWord(FILE *file)
     char retval = 0;
     unsigned int nextLetter = readLetter(file);
     unsigned int letter;
-
     while (isSeparator(nextLetter))
     {
         nextLetter = readLetter(file);
