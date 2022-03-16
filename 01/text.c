@@ -48,13 +48,27 @@ int readLetter(FILE *file)
 }
 
 /*
+reads letter to check if it is a bridge
+returns 1 if it is a bridge
+returns 0 if not
+*/
+int isBridge(unsigned int letter)
+{
+    return (
+        letter == 0x27                          // '
+        || letter == 0xE28098                   // ‘
+        || letter == 0xE28099                   // ’
+    );
+}
+
+/*
 reads letter to check if it is a vowel
 returns 1 if it is a vowel
 returns 0 if not
 */
 int isVowel(unsigned int letter)
 {
-    if (
+    return (
         letter == 0x41                          // A
         || letter == 0x45                       // E
         || letter == 0x49                       // I
@@ -75,9 +89,7 @@ int isVowel(unsigned int letter)
         || 0xc3ac <= letter && letter <= 0xc3ad // ì í
         || 0xc3b2 <= letter && letter <= 0xc3b5 // ò ó ô õ
         || 0xc3b9 <= letter && letter <= 0xc3ba // ù ú
-    )
-        return 1;
-    return 0;
+    );
 }
 
 /*
@@ -87,7 +99,7 @@ returns 0 if not
 */
 int isConsonant(unsigned int letter)
 {
-    if (
+    return (
         letter == 0xc387                    // Ç
         || letter == 0xc3a7                 // ç
         || 0x42 <= letter && letter <= 0x44 // B C D
@@ -100,9 +112,7 @@ int isConsonant(unsigned int letter)
         || 0x6a <= letter && letter <= 0x6e // j k l m n
         || 0x70 <= letter && letter <= 0x74 // p q r s t
         || 0x76 <= letter && letter <= 0x7a // v w x y z
-    )
-        return 1;
-    return 0;
+    );
 }
 
 /*
@@ -112,7 +122,7 @@ returns 0 if not
 */
 int isSeparator(unsigned int letter)
 {
-    if (
+    return (
         letter == 0x20                              // space
         || letter == 0x9                            // \t
         || letter == 0xA                            // \n
@@ -127,37 +137,38 @@ int isSeparator(unsigned int letter)
         || 0x2c <= letter && letter <= 0x2e         // , - .
         || 0x3a <= letter && letter <= 0x3b         // : ;
         || 0xe2809c <= letter && letter <= 0xe2809d // “ ”
-    )
-        return 1;
-    return 0;
+    );
 }
 
 /*
 read chars with letter function until \0 or EOF
-return a 3 bit value
-3-bit = is EOF
-2-bit : ends with consonant
+return a 4 bit value
+4-bit: there was no word to read
+3-bit: is EOF
+2-bit: ends with consonant
 1-bit: begins with vowel
+
 */
 char readWord(FILE *file)
 {
     char retval = 0;
     unsigned int nextLetter = readLetter(file);
     unsigned int letter;
-    while (isSeparator(nextLetter))
+    while (isSeparator(nextLetter) || isBridge(nextLetter))
     {
         nextLetter = readLetter(file);
     }
 
     if (nextLetter == EOF)
-        return 4; // 100
+        return 8; // 1000
 
     if (isVowel(nextLetter))
         retval += 1; // 001
 
     do
     {
-        letter = nextLetter;
+        if (! isBridge(nextLetter))
+            letter = nextLetter;
         nextLetter = readLetter(file);
     } while (nextLetter != EOF && !isSeparator(nextLetter));
 
@@ -189,7 +200,7 @@ struct fileStats parseFile(char *fileName)
     do
     {
         wordStats = readWord(file);
-        stats.words++;
+        stats.words+= !(wordStats>>3) & 1; //8-bit is not active
         stats.startsVowel += wordStats & 1;
         stats.endsConsonant += (wordStats & 2) >> 1;
     } while (!(wordStats >> 2));
