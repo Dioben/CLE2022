@@ -19,7 +19,7 @@ int readLetter(FILE *file)
     size_t readBytes = fread(&readspot, 1, 1, file);
     if (readBytes != 1)
         return EOF;
-    int loops=0;
+    int loops = 0;
     if (!(readspot >> 7)) // leftmost byte is 0
         return readspot;
     else if (readspot <= 223 && readspot >= 192)
@@ -39,7 +39,8 @@ int readLetter(FILE *file)
         perror("Invalid text found");
         return EOF;
     }
-    for(int i=0;i<loops;i++){
+    for (int i = 0; i < loops; i++)
+    {
         readspot <<= 8;
         fread(&readspot, 1, 1, file);
     }
@@ -55,9 +56,9 @@ returns 0 if not
 int isBridge(unsigned int letter)
 {
     return (
-        letter == 0x27                          // '
-        || letter == 0xE28098                   // ‘
-        || letter == 0xE28099                   // ’
+        letter == 0x27                              // '
+        || letter == 0x60                           // `
+        || 0xE28098 == letter || letter == 0xE28099 // ‘ ’
     );
 }
 
@@ -81,14 +82,14 @@ int isVowel(unsigned int letter)
         || letter == 0x75                       // u
         || 0xc380 <= letter && letter <= 0xc383 // À Á Â Ã
         || 0xc388 <= letter && letter <= 0xc38a // È É Ê
-        || 0xc38c <= letter && letter <= 0xc38d // Ì Í
+        || 0xc38c == letter || letter == 0xc38d // Ì Í
         || 0xc392 <= letter && letter <= 0xc395 // Ò Ó Ô Õ
-        || 0xc399 <= letter && letter <= 0xc39a // Ù Ú
+        || 0xc399 == letter || letter == 0xc39a // Ù Ú
         || 0xc3a0 <= letter && letter <= 0xc3a3 // à á â ã
         || 0xc3a8 <= letter && letter <= 0xc3aa // è é ê
-        || 0xc3ac <= letter && letter <= 0xc3ad // ì í
+        || 0xc3ac == letter || letter == 0xc3ad // ì í
         || 0xc3b2 <= letter && letter <= 0xc3b5 // ò ó ô õ
-        || 0xc3b9 <= letter && letter <= 0xc3ba // ù ú
+        || 0xc3b9 == letter || letter == 0xc3ba // ù ú
     );
 }
 
@@ -130,13 +131,15 @@ int isSeparator(unsigned int letter)
         || letter == 0x5b                           // [
         || letter == 0x5d                           // ]
         || letter == 0x3f                           // ?
-        || letter == 0xe28093                       // –
+        || letter == 0xc2ab                         // «
+        || letter == 0xc2bb                         // »
         || letter == 0xe280a6                       // …
-        || 0x21 <= letter && letter <= 0x22         // ! "
-        || 0x28 <= letter && letter <= 0x29         // ( )
+        || 0x21 == letter || letter == 0x22         // ! "
+        || 0x28 == letter || letter == 0x29         // ( )
         || 0x2c <= letter && letter <= 0x2e         // , - .
-        || 0x3a <= letter && letter <= 0x3b         // : ;
-        || 0xe2809c <= letter && letter <= 0xe2809d // “ ”
+        || 0x3a == letter || letter == 0x3b         // : ;
+        || 0xe28093 == letter || letter == 0xe28094 // – —
+        || 0xe2809c == letter || letter == 0xe2809d // “ ”
     );
 }
 
@@ -163,20 +166,20 @@ char readWord(FILE *file)
         return 8; // 1000
 
     if (isVowel(nextLetter))
-        retval += 1; // 001
+        retval += 1; // 0001
 
     do
     {
-        if (! isBridge(nextLetter))
+        if (!isBridge(nextLetter))
             letter = nextLetter;
         nextLetter = readLetter(file);
     } while (nextLetter != EOF && !isSeparator(nextLetter));
 
     if (isConsonant(letter))
-        retval += 2; // 010
+        retval += 2; // 0010
 
     if (nextLetter == EOF)
-        retval += 4; // 100
+        retval += 4; // 0100
 
     return retval;
 }
@@ -200,7 +203,7 @@ struct fileStats parseFile(char *fileName)
     do
     {
         wordStats = readWord(file);
-        stats.words+= !(wordStats>>3) & 1; //8-bit is not active
+        stats.words += !(wordStats >> 3) & 1; // 8-bit is not active
         stats.startsVowel += wordStats & 1;
         stats.endsConsonant += (wordStats & 2) >> 1;
     } while (!(wordStats >> 2));
