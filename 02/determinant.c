@@ -36,7 +36,7 @@ double calculateDeterminant(int order, double matrix[order][order])
             int foundJ = 0;
             for (int j = i + 1; j < order; j++)
             {
-                if (matrix[j][j] != 0)
+                if (matrix[i][j] != 0)
                     foundJ = j;
             }
             if (!foundJ)
