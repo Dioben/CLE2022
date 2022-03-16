@@ -9,7 +9,7 @@ void readMatrix(FILE *file, int order, double matrix[order][order])
 {
     for (int x = 0; x < order; x++)
         for (int y = 0; y < order; y++)
-            fread(&matrix[x][y], sizeof(double *), 1, file);
+            fread(&matrix[x][y], 8, 1, file);
 }
 
 /*
@@ -28,8 +28,35 @@ double calculateDeterminant(int order, double matrix[order][order])
     {
         return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]; // AD - BC
     }
-    return -69.420;
-    // TODO: write way to calc determinant for matrices with order > 2
+    double determinant = 1;
+    for (int i = 0; i < order; i++)
+    {
+        if (matrix[i][i] == 0)
+        {
+            int foundJ = 0;
+            for (int j = i + 1; j < order; j++)
+            {
+                if (matrix[j][j] != 0)
+                    foundJ = j;
+            }
+            if (!foundJ)
+                return 0;
+            determinant *= -1;
+            // TODO: make sure this swap is right
+            double *tempRow = matrix[i];
+            *matrix[i] = *matrix[foundJ];
+            *matrix[foundJ] = *tempRow;
+        }
+        for (int k = i + 1; k < order; k++)
+        {
+            for (int j = i; j < order; j++)
+            {
+                matrix[k][j] -= (matrix[k][i] / matrix[i][i]) * matrix[i][j];
+            }
+        }
+        determinant *= matrix[i][i];
+    }
+    return determinant;
 }
 
 /*
@@ -48,7 +75,7 @@ double *parseFile(char *fileName)
     unsigned int order;
     fread(&count, 4, 1, file);
     fread(&order, 4, 1, file);
-    double *determinants = (double *) malloc((count + 1) * sizeof(double *));
+    double *determinants = (double *)malloc((count + 1) * sizeof(double));
     determinants[0] = count;
     if (determinants == NULL)
     {
@@ -73,7 +100,7 @@ int main(int argc, char **args)
         int count = determinants[0];
         for (int ii = 1; ii <= count; ii++)
         {
-            printf("%-50s %6d %30.5f\n", args[i], ii, determinants[ii]);
+            printf("%-50s %6d %30.5e\n", args[i], ii, determinants[ii]);
         }
         free(determinants);
     }
