@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 /*
 Gets file and order of the matrix
@@ -80,10 +81,16 @@ double *parseFile(char *fileName)
 
 int main(int argc, char **args)
 {
+    double t0, t1, t2; /* time limits */
+    t2 = 0.0;
+
     printf("%-50s %6s %30s\n", "File Name", "Matrix", "Determinant");
     for (int i = 1; i < argc; i++)
     {
+        t0 = ((double) clock ()) / CLOCKS_PER_SEC;
         double *determinants = parseFile(args[i]);
+        t1 = ((double) clock ()) / CLOCKS_PER_SEC;
+        t2 += t1 - t0;
         int count = determinants[0];
         for (int ii = 1; ii <= count; ii++)
         {
@@ -91,5 +98,7 @@ int main(int argc, char **args)
         }
         free(determinants);
     }
+    
+    printf("\nElapsed time = %.6f s\n", t2);
     return 0;
 }
