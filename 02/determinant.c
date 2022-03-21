@@ -29,32 +29,19 @@ double calculateDeterminant(int order, double matrix[order][order])
         return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]; // AD - BC
     }
     double determinant = 1;
-    for (int i = 0; i < order; i++)
-    {
-        if (matrix[i][i] == 0)
-        {
-            int foundJ = 0;
-            for (int j = i + 1; j < order; j++)
-            {
-                if (matrix[i][j] != 0)
-                    foundJ = j;
-            }
-            if (!foundJ)
-                return 0;
-            determinant *= -1;
-            // TODO: make sure this swap is right
-            double *tempRow = matrix[i];
-            *matrix[i] = *matrix[foundJ];
-            *matrix[foundJ] = *tempRow;
-        }
-        for (int k = i + 1; k < order; k++)
-        {
-            for (int j = i; j < order; j++)
-            {
-                matrix[k][j] -= (matrix[k][i] / matrix[i][i]) * matrix[i][j];
+
+      for(int i=0;i<order-1;i++){ //triangular form
+        for(int k=i+1;k<order;k++){
+            double  term= matrix[k][i]/matrix[i][i];
+            for(int j=0;j<order;j++){
+                matrix[k][j]= matrix[k][j]-term*matrix[i][j];
             }
         }
-        determinant *= matrix[i][i];
+    }
+
+
+    for (int i =0;i<order;i++){ //multipy diagonals
+        determinant*=matrix[i][i];
     }
     return determinant;
 }
