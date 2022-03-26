@@ -228,6 +228,12 @@ int main(int argc, char **args)
         switch ((opt = getopt(argc, args, "f:h")))
         {
         case 'f': /* file name */
+            if (filestart!=-1)//duplicate -f
+            {
+            fprintf(stderr, "%s: -f can only be used once\n", basename(args[0]));
+            printUsage(basename(args[0]));
+            return EXIT_FAILURE;
+            }
             filestart = optind - 1;
             for (filespan = 0; filestart + filespan < argc && args[filespan + filestart][0] != '-'; filespan++)
             {
