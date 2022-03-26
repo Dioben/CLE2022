@@ -225,7 +225,7 @@ int main(int argc, char **args)
 
     do
     {
-        switch ((opt = getopt(argc, args, "f:n:h")))
+        switch ((opt = getopt(argc, args, "f:h")))
         {
         case 'f': /* file name */
             filestart = optind - 1;
