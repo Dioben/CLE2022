@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <libgen.h>
 
-
-static void printUsage (char *cmdName);
+/* allusion to internal functions */
+static void printUsage(char *cmdName);
 
 struct fileStats
 {
@@ -77,16 +77,16 @@ returns 0 if not
 int isVowel(unsigned int letter)
 {
     return (
-        letter == 0x41                          // A
-        || letter == 0x45                       // E
-        || letter == 0x49                       // I
-        || letter == 0x4f                       // O
-        || letter == 0x55                       // U
-        || letter == 0x61                       // a
-        || letter == 0x65                       // e
-        || letter == 0x69                       // i
-        || letter == 0x6f                       // o
-        || letter == 0x75                       // u
+        letter == 0x41                            // A
+        || letter == 0x45                         // E
+        || letter == 0x49                         // I
+        || letter == 0x4f                         // O
+        || letter == 0x55                         // U
+        || letter == 0x61                         // a
+        || letter == 0x65                         // e
+        || letter == 0x69                         // i
+        || letter == 0x6f                         // o
+        || letter == 0x75                         // u
         || (0xc380 <= letter && letter <= 0xc383) // À Á Â Ã
         || (0xc388 <= letter && letter <= 0xc38a) // È É Ê
         || (0xc38c == letter || letter == 0xc38d) // Ì Í
@@ -108,8 +108,8 @@ returns 0 if not
 int isConsonant(unsigned int letter)
 {
     return (
-        letter == 0xc387                    // Ç
-        || letter == 0xc3a7                 // ç
+        letter == 0xc387                      // Ç
+        || letter == 0xc3a7                   // ç
         || (0x42 <= letter && letter <= 0x44) // B C D
         || (0x46 <= letter && letter <= 0x48) // F G H
         || (0x4a <= letter && letter <= 0x4e) // J K L M N
@@ -143,7 +143,7 @@ int isSeparator(unsigned int letter)
         || letter == 0xe280a6                       // …
         || 0x21 == letter || letter == 0x22         // ! "
         || 0x28 == letter || letter == 0x29         // ( )
-        || (0x2c <= letter && letter <= 0x2e)         // , - .
+        || (0x2c <= letter && letter <= 0x2e)       // , - .
         || 0x3a == letter || letter == 0x3b         // : ;
         || 0xe28093 == letter || letter == 0xe28094 // – —
         || 0xe2809c == letter || letter == 0xe2809d // “ ”
@@ -157,7 +157,6 @@ return a 4 bit value
 3-bit: is EOF
 2-bit: ends with consonant
 1-bit: begins with vowel
-
 */
 char readWord(FILE *file)
 {
@@ -177,8 +176,7 @@ char readWord(FILE *file)
 
     do
     {
-        if (!isBridge(nextLetter))
-            letter = nextLetter;
+        letter = nextLetter;
         nextLetter = readLetter(file);
     } while (nextLetter != EOF && !isSeparator(nextLetter));
 
@@ -220,57 +218,61 @@ struct fileStats parseFile(char *fileName)
 
 int main(int argc, char **args)
 {
-    int opt; /* selected option */
-    opterr = 0; //this seems to set error throwing to manual (getopt can now return ?)
+    int opt;    /* selected option */
+    opterr = 0; // this seems to set error throwing to manual (getopt can now return ?)
     unsigned int filestart = -1;
     unsigned int filespan = 0;
 
     do
-    { switch ((opt = getopt (argc, args, "f:n:h")))
     {
-    case 'f': /* file name */
-        filestart = optind -1;
-        for(filespan=0; filestart+filespan < argc && args[filespan+filestart][0] != '-'; filespan++){    
-        //constantly checks if within bounds and isnt next OPT    
-        //this loop only serves to advance filespan
+        switch ((opt = getopt(argc, args, "f:n:h")))
+        {
+        case 'f': /* file name */
+            filestart = optind - 1;
+            for (filespan = 0; filestart + filespan < argc && args[filespan + filestart][0] != '-'; filespan++)
+            {
+                // constantly checks if within bounds and isnt next OPT
+                // this loop only serves to advance filespan
+            }
+            break;
+        case 'h': /* help mode */
+            printUsage(basename(args[0]));
+            return EXIT_SUCCESS;
+        case '?': /* invalid option */
+            fprintf(stderr, "%s: invalid option\n", basename(args[0]));
+            printUsage(basename(args[0]));
+            return EXIT_FAILURE;
+        case -1:
+            break;
         }
-        break;
-    case 'h': /* help mode */
-        printUsage (basename (args[0]));
-        return EXIT_SUCCESS;
-    case '?': /* invalid option */
-        fprintf (stderr, "%s: invalid option\n", basename (args[0]));
-        printUsage (basename (args[0]));
-        return EXIT_FAILURE;
-    case -1: break;
-    }
     } while (opt != -1);
 
-    if (argc == 1)//no args
-    {   fprintf (stderr, "%s: invalid format\n", basename (args[0]));
-        printUsage (basename (args[0]));
-        return EXIT_FAILURE;
-     }
-    if (filestart == -1 || filespan == 0) //no files
-    {   fprintf (stderr, "%s: file name is missing\n", basename (args[0]));
-        printUsage (basename (args[0]));
+    if (argc == 1) // no args
+    {
+        fprintf(stderr, "%s: invalid format\n", basename(args[0]));
+        printUsage(basename(args[0]));
         return EXIT_FAILURE;
     }
-
+    if (filestart == -1 || filespan == 0) // no files
+    {
+        fprintf(stderr, "%s: file name is missing\n", basename(args[0]));
+        printUsage(basename(args[0]));
+        return EXIT_FAILURE;
+    }
 
     double t0, t1, t2; /* time limits */
     t2 = 0.0;
 
-    char* file;
+    char *file;
 
     printf("%-30s %15s %15s %15s\n", "File Name", "Word Count", "Starts Vowel", "Ends Consonant");
     for (int i = 0; i < filespan; i++)
     {
-        file = args[filestart+i];
+        file = args[filestart + i];
 
-        t0 = ((double) clock ()) / CLOCKS_PER_SEC;
+        t0 = ((double)clock()) / CLOCKS_PER_SEC;
         struct fileStats stats = parseFile(file);
-        t1 = ((double) clock ()) / CLOCKS_PER_SEC;
+        t1 = ((double)clock()) / CLOCKS_PER_SEC;
         t2 += t1 - t0;
         printf("%-30s %15lu %15lu %15lu\n", file, stats.words, stats.startsVowel, stats.endsConsonant);
     }
@@ -285,11 +287,11 @@ int main(int argc, char **args)
  *
  *  \param cmdName string with the name of the command
  */
-
-static void printUsage (char *cmdName)
+static void printUsage(char *cmdName)
 {
-  fprintf (stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
-           "  OPTIONS:\n"
-           "  -h      --- print this help\n"
-           "  -f      --- filenames, space separated\n", cmdName);
+    fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
+                    "  OPTIONS:\n"
+                    "  -h      --- print this help\n"
+                    "  -f      --- filenames, space separated\n",
+            cmdName);
 }

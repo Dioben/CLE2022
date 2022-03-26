@@ -4,10 +4,8 @@
 #include <unistd.h>
 #include <libgen.h>
 
-
 /* allusion to internal functions */
-
-static void printUsage (char *cmdName);
+static void printUsage(char *cmdName);
 
 /*
 Gets file and order of the matrix
@@ -38,18 +36,21 @@ double calculateDeterminant(int order, double matrix[order][order])
     }
     double determinant = 1;
 
-      for(int i=0;i<order-1;i++){ //triangular form
-        for(int k=i+1;k<order;k++){
-            double  term= matrix[k][i]/matrix[i][i];
-            for(int j=0;j<order;j++){
-                matrix[k][j]= matrix[k][j]-term*matrix[i][j];
+    for (int i = 0; i < order - 1; i++)
+    { // triangular form
+        for (int k = i + 1; k < order; k++)
+        {
+            double term = matrix[k][i] / matrix[i][i];
+            for (int j = 0; j < order; j++)
+            {
+                matrix[k][j] = matrix[k][j] - term * matrix[i][j];
             }
         }
     }
 
-
-    for (int i =0;i<order;i++){ //multipy diagonals
-        determinant*=matrix[i][i];
+    for (int i = 0; i < order; i++)
+    { // multipy diagonals
+        determinant *= matrix[i][i];
     }
     return determinant;
 }
@@ -88,57 +89,60 @@ double *parseFile(char *fileName)
 
 int main(int argc, char *args[])
 {
-    int opt; /* selected option */
-    opterr = 0; //this seems to set error throwing to manual (getopt can now return ?)
+    int opt;    /* selected option */
+    opterr = 0; // this seems to set error throwing to manual (getopt can now return ?)
     unsigned int filestart = -1;
     unsigned int filespan = 0;
 
     do
-    { switch ((opt = getopt (argc, args, "f:n:h")))
     {
-    case 'f': /* file name */
-        filestart = optind -1;
-        for(filespan=0; filestart+filespan < argc && args[filespan+filestart][0] != '-'; filespan++){    
-        //constantly checks if within bounds and isnt next OPT    
-        //this loop only serves to advance filespan
+        switch ((opt = getopt(argc, args, "f:n:h")))
+        {
+        case 'f': /* file name */
+            filestart = optind - 1;
+            for (filespan = 0; filestart + filespan < argc && args[filespan + filestart][0] != '-'; filespan++)
+            {
+                // constantly checks if within bounds and isnt next OPT
+                // this loop only serves to advance filespan
+            }
+            break;
+        case 'h': /* help mode */
+            printUsage(basename(args[0]));
+            return EXIT_SUCCESS;
+        case '?': /* invalid option */
+            fprintf(stderr, "%s: invalid option\n", basename(args[0]));
+            printUsage(basename(args[0]));
+            return EXIT_FAILURE;
+        case -1:
+            break;
         }
-        break;
-    case 'h': /* help mode */
-        printUsage (basename (args[0]));
-        return EXIT_SUCCESS;
-    case '?': /* invalid option */
-        fprintf (stderr, "%s: invalid option\n", basename (args[0]));
-        printUsage (basename (args[0]));
-        return EXIT_FAILURE;
-    case -1: break;
-    }
     } while (opt != -1);
 
-    if (argc == 1)//no args
-    {   fprintf (stderr, "%s: invalid format\n", basename (args[0]));
-        printUsage (basename (args[0]));
-        return EXIT_FAILURE;
-     }
-    if (filestart == -1 || filespan == 0) //no files
-    {   fprintf (stderr, "%s: file name is missing\n", basename (args[0]));
-        printUsage (basename (args[0]));
+    if (argc == 1) // no args
+    {
+        fprintf(stderr, "%s: invalid format\n", basename(args[0]));
+        printUsage(basename(args[0]));
         return EXIT_FAILURE;
     }
-
-
+    if (filestart == -1 || filespan == 0) // no files
+    {
+        fprintf(stderr, "%s: file name is missing\n", basename(args[0]));
+        printUsage(basename(args[0]));
+        return EXIT_FAILURE;
+    }
 
     double t0, t1, t2; /* time limits */
     t2 = 0.0;
 
-    char* file;
+    char *file;
     printf("%-50s %6s %30s\n", "File Name", "Matrix", "Determinant");
     for (int i = 0; i < filespan; i++)
     {
-        file = args[filestart+i];
+        file = args[filestart + i];
 
-        t0 = ((double) clock ()) / CLOCKS_PER_SEC;
+        t0 = ((double)clock()) / CLOCKS_PER_SEC;
         double *determinants = parseFile(file);
-        t1 = ((double) clock ()) / CLOCKS_PER_SEC;
+        t1 = ((double)clock()) / CLOCKS_PER_SEC;
         t2 += t1 - t0;
         int count = determinants[0];
         for (int ii = 1; ii <= count; ii++)
@@ -147,7 +151,7 @@ int main(int argc, char *args[])
         }
         free(determinants);
     }
-    
+
     printf("\nElapsed time = %.6f s\n", t2);
     return 0;
 }
@@ -159,11 +163,11 @@ int main(int argc, char *args[])
  *
  *  \param cmdName string with the name of the command
  */
-
-static void printUsage (char *cmdName)
+static void printUsage(char *cmdName)
 {
-  fprintf (stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
-           "  OPTIONS:\n"
-           "  -h      --- print this help\n"
-           "  -f      --- filenames, space separated\n", cmdName);
+    fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
+                    "  OPTIONS:\n"
+                    "  -h      --- print this help\n"
+                    "  -f      --- filenames, space separated\n",
+            cmdName);
 }
