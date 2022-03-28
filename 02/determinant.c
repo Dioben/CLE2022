@@ -3,6 +3,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <string.h>
 
 /* allusion to internal functions */
 static void printUsage(char *cmdName);
@@ -93,6 +94,7 @@ int main(int argc, char *args[])
     opterr = 0; // this seems to set error throwing to manual (getopt can now return ?)
     unsigned int filestart = -1;
     unsigned int filespan = 0;
+    char** files;
 
     do
     {
@@ -111,13 +113,21 @@ int main(int argc, char *args[])
                 // constantly checks if within bounds and isnt next OPT
                 // this loop only serves to advance filespan
             }
+            files = (char **) malloc( sizeof(char **) *filespan);
+            for (int i = 0; i<filespan;i++)
+             {
+                files[i] = args[filestart+i];
+             }
+             //memcpy(files,args[filestart],(sizeof(char*)*filespan)); #TODO: find out why this isnt viable
             break;
         case 'h': /* help mode */
             printUsage(basename(args[0]));
+            free(files);
             return EXIT_SUCCESS;
         case '?': /* invalid option */
             fprintf(stderr, "%s: invalid option\n", basename(args[0]));
             printUsage(basename(args[0]));
+            free(files);
             return EXIT_FAILURE;
         case -1:
             break;
@@ -144,7 +154,7 @@ int main(int argc, char *args[])
     printf("%-50s %6s %30s\n", "File Name", "Matrix", "Determinant");
     for (int i = 0; i < filespan; i++)
     {
-        file = args[filestart + i];
+        file = files[i];
 
         t0 = ((double)clock()) / CLOCKS_PER_SEC;
         double *determinants = parseFile(file);
@@ -158,6 +168,7 @@ int main(int argc, char *args[])
         free(determinants);
     }
 
+    free(files);
     printf("\nElapsed time = %.6f s\n", t2);
     return 0;
 }
