@@ -114,11 +114,7 @@ int main(int argc, char *args[])
                 // this loop only serves to advance filespan
             }
             files = (char **) malloc( sizeof(char **) *filespan);
-            for (int i = 0; i<filespan;i++)
-             {
-                files[i] = args[filestart+i];
-             }
-             //memcpy(files,args[filestart],(sizeof(char*)*filespan)); #TODO: find out why this isnt viable
+            memcpy(files,&args[filestart],(sizeof(char*)*filespan));
             break;
         case 'h': /* help mode */
             printUsage(basename(args[0]));

@@ -242,11 +242,7 @@ int main(int argc, char **args)
                 // this loop only serves to advance filespan
             }
             files = (char **) malloc( sizeof(char **) *filespan);
-            for (int i = 0; i<filespan;i++)
-            {
-                files[i] = args[filestart+i];
-            }
-            //memcpy(files,args[filestart],(sizeof(char*)*filespan)); #TODO: find out why this isnt viable
+            memcpy(files,&args[filestart],(sizeof(char*)*filespan));
             break;
         case 'h': /* help mode */
             printUsage(basename(args[0]));
@@ -282,7 +278,7 @@ int main(int argc, char **args)
     printf("%-30s %15s %15s %15s\n", "File Name", "Word Count", "Starts Vowel", "Ends Consonant");
     for (int i = 0; i < filespan; i++)
     {
-        file = files[i];
+        file =  files[i];
         t0 = ((double)clock()) / CLOCKS_PER_SEC;
         struct fileStats stats = parseFile(file);
         t1 = ((double)clock()) / CLOCKS_PER_SEC;
