@@ -49,6 +49,16 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _f
     }
 }
 
+void freeSharedRegion()
+{
+    for (int i = 0; i < totalFileCount; i++)
+        free(results[i].determinants);
+    free(results);
+    free(taskFIFO);
+    free(resultInitialized);
+    free(resultInitializedCond);
+}
+
 void throwThreadError(int error, char *string)
 {
     errno = error;

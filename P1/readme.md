@@ -16,3 +16,7 @@ add comments to stuff
 for text each file is a job
 for matrix stuff both file decomposition and determinant calculus is a job
 maybe make it so workers can do both things
+
+## prog2
+
+compile with `gcc main.c sharedRegion.c worker.c -Wall -lpthread -lm -o prog2`

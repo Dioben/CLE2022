@@ -54,7 +54,7 @@ static void parseFile(int fileIndex)
     fread(&count, 4, 1, file);
     fread(&order, 4, 1, file);
     initResult(fileIndex, count);
-    for (int i = 1; i <= count; i++)
+    for (int i = 0; i < count; i++)
     {
         double matrix[order][order];
         readMatrix(file, order, matrix);
@@ -63,9 +63,7 @@ static void parseFile(int fileIndex)
             Task task = {.matrixIndex = i,
                          .fileIndex = fileIndex,
                          .order = order};
-            task.matrix = malloc(sizeof(double)*order);
-            for (int x = 0; x < order; x++)
-                task.matrix[x] = malloc(sizeof(double)*order);
+            task.matrix = malloc(sizeof(double)*order*order);
             memcpy(task.matrix, matrix, sizeof(double)*order*order);
             putTask(task);
         }
@@ -91,6 +89,7 @@ void *worker(void *par)
         Task task = getTask();
         double matrix[task.order][task.order];
         memcpy(matrix, task.matrix, sizeof(double)*task.order*task.order);
+        free(task.matrix);
         double determinant = calculateDeterminant(task.order, matrix);
         updateResult(task.fileIndex, task.matrixIndex, determinant);
     }
