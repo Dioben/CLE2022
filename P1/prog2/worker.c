@@ -25,8 +25,23 @@ static double calculateDeterminant(int order, double matrix[order][order])
     }
     double determinant = 1;
 
+    // triangular form
     for (int i = 0; i < order - 1; i++)
-    { // triangular form
+    {
+        if (matrix[i][i] == 0)
+        {
+            int foundJ = 0;
+            for (int j = i + 1; j < order; j++)
+                if (matrix[j][i] != 0)
+                    foundJ = j;
+            if (!foundJ)
+                return 0;
+            determinant *= -1;
+            double tempRow[order];
+            memcpy(tempRow, matrix[i], sizeof(double)*order);
+            memcpy(matrix[i], matrix[foundJ], sizeof(double)*order);
+            memcpy(matrix[foundJ], tempRow, sizeof(double)*order);
+        }
         for (int k = i + 1; k < order; k++)
         {
             double term = matrix[k][i] / matrix[i][i];
