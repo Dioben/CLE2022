@@ -21,7 +21,7 @@ extern char **files;
 extern void initSharedRegion(int _totalFileCount, char *_files[], int _fifoSize, int workerCount);
 extern void freeSharedRegion();
 extern void throwThreadError(int error, char *string);
-extern int getNewFileIndex();
+extern int *getNewFileIndex();
 extern int getAssignedFileCount();
 extern int getReaderCount();
 extern void decreaseReaderCount();

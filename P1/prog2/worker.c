@@ -63,8 +63,8 @@ static void parseFile(int fileIndex)
             Task task = {.matrixIndex = i,
                          .fileIndex = fileIndex,
                          .order = order};
-            task.matrix = malloc(sizeof(double)*order*order);
-            memcpy(task.matrix, matrix, sizeof(double)*order*order);
+            task.matrix = malloc(sizeof(double) * order * order);
+            memcpy(task.matrix, matrix, sizeof(double) * order * order);
             putTask(task);
         }
         else
@@ -79,20 +79,29 @@ void *worker(void *par)
 {
     while (getAssignedFileCount() < totalFileCount)
     {
-        // TODO: make it so if a file is not assigned it breaks instead of throwing
-        int fileIndex = getNewFileIndex();
-        parseFile(fileIndex);
+        int *fileIndex = getNewFileIndex();
+        if (fileIndex[0] == EXIT_FAILURE)
+        {
+            if (fileIndex[1] == -1)
+                perror("Error on getNewFileIndex() lock");
+            else
+                perror("Error on getNewFileIndex() unlock");
+            free(fileIndex);
+            continue;
+        }
+        parseFile(fileIndex[1]);
+        free(fileIndex);
     }
     decreaseReaderCount();
-    while (!isTaskListEmpty() || getReaderCount()>0)
+    while (!isTaskListEmpty() || getReaderCount() > 0)
     {
         Task task = getTask();
         double matrix[task.order][task.order];
-        memcpy(matrix, task.matrix, sizeof(double)*task.order*task.order);
+        memcpy(matrix, task.matrix, sizeof(double) * task.order * task.order);
         free(task.matrix);
         double determinant = calculateDeterminant(task.order, matrix);
         updateResult(task.fileIndex, task.matrixIndex, determinant);
     }
-    
+
     pthread_exit((int *)EXIT_SUCCESS);
 }
