@@ -19,8 +19,10 @@ static int ri;
 static int full; // boolean
 static int *resultInitialized; // boolean list
 
-// tried separate mutex per variable but it segmentation faulted
-static pthread_mutex_t accessCR = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t assignedFileCountAccess = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t readerCountAccess = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t fifoAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t fifoFull;
 static pthread_cond_t fifoEmpty;
 static pthread_cond_t *resultInitializedCond;
@@ -71,12 +73,12 @@ int getNewFileIndex()
     int val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&assignedFileCountAccess)) != 0)
         throwThreadError(status, "Error on getNewFile() lock");
     
     val = assignedFileCount++;
     
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&assignedFileCountAccess)) != 0)
         throwThreadError(status, "Error on getNewFile() unlock");
     
     return val;
@@ -87,12 +89,12 @@ int getAssignedFileCount()
     int val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&assignedFileCountAccess)) != 0)
         throwThreadError(status, "Error on getAssignedFileCount() lock");
     
     val = assignedFileCount;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&assignedFileCountAccess)) != 0)
         throwThreadError(status, "Error on getAssignedFileCount() unlock");
     
     return val;
@@ -103,12 +105,12 @@ int getReaderCount()
     int val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&readerCountAccess)) != 0)
         throwThreadError(status, "Error on getReaderCount() lock");
 
     val = readerCount;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&readerCountAccess)) != 0)
         throwThreadError(status, "Error on getReaderCount() unlock");
 
     return val;
@@ -118,12 +120,12 @@ void decreaseReaderCount()
 {
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&readerCountAccess)) != 0)
         throwThreadError(status, "Error on getReaderCount() lock");
 
     readerCount--;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&readerCountAccess)) != 0)
         throwThreadError(status, "Error on getReaderCount() unlock");
 }
 
@@ -131,7 +133,7 @@ void initResult(int fileIndex, int matrixCount)
 {
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on initResult() lock");
 
     results[fileIndex].matrixCount = matrixCount;
@@ -142,7 +144,7 @@ void initResult(int fileIndex, int matrixCount)
     if ((status = pthread_cond_signal(&resultInitializedCond[fileIndex])) != 0)
         throwThreadError(status, "Error on initResult() resultInitializedCond signal");
     
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on initResult() unlock");
 }
 
@@ -150,16 +152,16 @@ void updateResult(int fileIndex, int matrixIndex, double determinant)
 {
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on updateResult() lock");
     
     while (!resultInitialized[fileIndex])
-        if ((status = pthread_cond_wait(&resultInitializedCond[fileIndex], &accessCR)) != 0)
+        if ((status = pthread_cond_wait(&resultInitializedCond[fileIndex], &resultsAccess)) != 0)
             throwThreadError(status, "Error on updateResult() resultInitializedCond wait");
     
     results[fileIndex].determinants[matrixIndex] = determinant;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on updateResult() unlock");
 }
 
@@ -168,12 +170,12 @@ Result *getResults()
     Result *val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResults() lock");
     
     val = results;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResults() unlock");
 
     return val;
@@ -184,12 +186,12 @@ int isTaskListEmpty()
     int val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on isTaskListEmpty() lock");
 
     val = (ii == ri) && !full;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on isTaskListEmpty() unlock");
 
     return val;
@@ -200,12 +202,12 @@ int isTaskListFull()
     int val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on isTaskListFull() lock");
 
     val = full;
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on isTaskListFull() unlock");
 
     return val;
@@ -216,11 +218,11 @@ Task getTask()
     Task val;
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on getTask() lock");
 
     while ((ii == ri) && !full)
-        if ((status = pthread_cond_wait(&fifoEmpty, &accessCR)) != 0)
+        if ((status = pthread_cond_wait(&fifoEmpty, &fifoAccess)) != 0)
             throwThreadError(status, "Error on getTask() fifoEmpty wait");
 
     val = taskFIFO[ri];
@@ -230,7 +232,7 @@ Task getTask()
     if ((status = pthread_cond_signal(&fifoFull)) != 0)
         throwThreadError(status, "Error on getTask() fifoFull signal");
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on getTask() unlock");
 
     return val;
@@ -240,11 +242,11 @@ void putTask(Task val)
 {
     int status;
     
-    if ((status = pthread_mutex_lock(&accessCR)) != 0)
+    if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on putTask() lock");
 
     while (full)
-        if ((status = pthread_cond_wait(&fifoFull, &accessCR)) != 0)
+        if ((status = pthread_cond_wait(&fifoFull, &fifoAccess)) != 0)
             throwThreadError(status, "Error on putTask() fifoFull wait");
 
     taskFIFO[ii] = val;
@@ -254,6 +256,6 @@ void putTask(Task val)
     if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
         throwThreadError(status, "Error on putTask() fifoEmpty signal");
 
-    if ((status = pthread_mutex_unlock(&accessCR)) != 0)
+    if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on putTask() unlock");
 }
