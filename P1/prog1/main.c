@@ -144,13 +144,10 @@ int main(int argc, char **args)
     }
 
     Result *results = getResults();
-    printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
+    printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");
     for (i = 0; i < fileCount; i++)
     {
-        for (int j = 0; j < results[i].matrixCount; j++)
-        {
-            printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
-        }
+        printf("%-30s %15d %21d %21d\n", fileNames[i], results[i].wordCount, results[i].vowelStartCount, results[i].consonantEndCount);
     }
 
     freeSharedRegion();
