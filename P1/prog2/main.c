@@ -118,7 +118,7 @@ int main(int argc, char **args)
     int workerCount = cmdArgs.workerCount;
     int fifoSize = 64;
 
-    // TODO: add timer
+    double t = ((double) clock()) / CLOCKS_PER_SEC; // timer
 
     initSharedRegion(fileCount, fileNames, fifoSize, workerCount);
 
@@ -142,6 +142,8 @@ int main(int argc, char **args)
             exit(EXIT_FAILURE);
         }
     }
+
+    printf("Elapsed time = %.6fs\n", (((double) clock()) / CLOCKS_PER_SEC) - t);
 
     Result *results = getResults();
     printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
