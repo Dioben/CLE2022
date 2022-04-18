@@ -56,37 +56,18 @@ void throwThreadError(int error, char *string)
     pthread_exit((int *)EXIT_FAILURE);
 }
 
-int *getNewFileIndex()
-{
-    int *val = malloc(sizeof(int) * 2); // exit status and output
-    val[0] = EXIT_FAILURE;
-    val[1] = -1;
-    int status;
-
-    if ((status = pthread_mutex_lock(&assignedFileCountAccess)) != 0)
-        return val;
-
-    val[1] = assignedFileCount++;
-
-    if ((status = pthread_mutex_unlock(&assignedFileCountAccess)) != 0)
-        return val;
-
-    val[0] = EXIT_SUCCESS;
-    return val;
-}
-
-int getAssignedFileCount()
+int getNewFileIndex()
 {
     int val;
     int status;
 
     if ((status = pthread_mutex_lock(&assignedFileCountAccess)) != 0)
-        throwThreadError(status, "Error on getAssignedFileCount() lock");
+        return -1;
 
-    val = assignedFileCount;
+    val = assignedFileCount++;
 
     if ((status = pthread_mutex_unlock(&assignedFileCountAccess)) != 0)
-        throwThreadError(status, "Error on getAssignedFileCount() unlock");
+        return -2;
 
     return val;
 }

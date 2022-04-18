@@ -259,20 +259,18 @@ static void parseFile(int fileIndex)
 
 void *worker(void *par)
 {
-    while (getAssignedFileCount() < totalFileCount)
+    int fileIndex;
+    while ((fileIndex = getNewFileIndex()) < totalFileCount)
     {
-        int *fileIndex = getNewFileIndex();
-        if (fileIndex[0] == EXIT_FAILURE)
+        if (fileIndex < 0)
         {
-            if (fileIndex[1] == -1)
+            if (fileIndex == -1)
                 perror("Error on getNewFileIndex() lock");
             else
                 perror("Error on getNewFileIndex() unlock");
-            free(fileIndex);
             continue;
         }
-        parseFile(fileIndex[1]);
-        free(fileIndex);
+        parseFile(fileIndex);
     }
     decreaseReaderCount();
     while (!isTaskListEmpty() || getReaderCount() > 0)
