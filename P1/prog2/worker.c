@@ -102,9 +102,11 @@ void *worker(void *par)
         parseFile(fileIndex);
     }
     decreaseReaderCount();
-    while (!isTaskListEmpty() || getReaderCount() > 0)
+    while (true)
     {
         Task task = getTask();
+        if (task.fileIndex == -1)
+            break;
         double matrix[task.order][task.order];
         memcpy(matrix, task.matrix, sizeof(double) * task.order * task.order);
         free(task.matrix);

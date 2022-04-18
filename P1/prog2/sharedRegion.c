@@ -33,7 +33,7 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _f
     totalFileCount = _totalFileCount;
     files = _files;
     fifoSize = _fifoSize;
-    readerCount = (totalFileCount < workerCount) ? totalFileCount : workerCount;
+    readerCount = workerCount;
 
     results = malloc(sizeof(Result) * totalFileCount);
     taskFIFO = malloc(sizeof(Task) * fifoSize);
@@ -72,33 +72,21 @@ int getNewFileIndex()
     return val;
 }
 
-int getReaderCount()
-{
-    int val;
-    int status;
-
-    if ((status = pthread_mutex_lock(&readerCountAccess)) != 0)
-        throwThreadError(status, "Error on getReaderCount() lock");
-
-    val = readerCount;
-
-    if ((status = pthread_mutex_unlock(&readerCountAccess)) != 0)
-        throwThreadError(status, "Error on getReaderCount() unlock");
-
-    return val;
-}
-
 void decreaseReaderCount()
 {
     int status;
 
     if ((status = pthread_mutex_lock(&readerCountAccess)) != 0)
-        throwThreadError(status, "Error on getReaderCount() lock");
+        throwThreadError(status, "Error on decreaseReaderCount() lock");
 
     readerCount--;
 
+    if (readerCount == 0)
+        if ((status = pthread_cond_broadcast(&fifoEmpty)) != 0)
+            throwThreadError(status, "Error on decreaseReaderCount() fifoEmpty broadcast");
+
     if ((status = pthread_mutex_unlock(&readerCountAccess)) != 0)
-        throwThreadError(status, "Error on getReaderCount() unlock");
+        throwThreadError(status, "Error on decreaseReaderCount() unlock");
 }
 
 void initResult(int fileIndex, int matrixCount)
@@ -144,22 +132,6 @@ Result *getResults()
     return val;
 }
 
-bool isTaskListEmpty()
-{
-    bool val;
-    int status;
-
-    if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
-        throwThreadError(status, "Error on isTaskListEmpty() lock");
-
-    val = (ii == ri) && !full;
-
-    if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
-        throwThreadError(status, "Error on isTaskListEmpty() unlock");
-
-    return val;
-}
-
 Task getTask()
 {
     Task val;
@@ -168,13 +140,21 @@ Task getTask()
     if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on getTask() lock");
 
-    while ((ii == ri) && !full)
+    // trying to lock readerCountAccess doesn't work here, even if readerCount is stored in a tmp variable at the start of the func
+    while (((ii == ri) && !full) && readerCount > 0)
         if ((status = pthread_cond_wait(&fifoEmpty, &fifoAccess)) != 0)
             throwThreadError(status, "Error on getTask() fifoEmpty wait");
 
-    val = taskFIFO[ri];
-    ri = (ri + 1) % fifoSize;
-    full = false;
+    if (!((ii == ri) && !full))
+    {
+        val = taskFIFO[ri];
+        ri = (ri + 1) % fifoSize;
+        full = false;
+    }
+    else
+    {
+        val.fileIndex = -1;
+    }
 
     if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on getTask() unlock");

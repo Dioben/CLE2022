@@ -24,11 +24,9 @@ extern void initSharedRegion(int _totalFileCount, char *_files[], int _fifoSize,
 extern void freeSharedRegion();
 extern void throwThreadError(int error, char *string);
 extern int getNewFileIndex();
-extern int getReaderCount();
 extern void decreaseReaderCount();
 extern void updateResult(int fileIndex, Result result);
 extern Result *getResults();
-extern bool isTaskListEmpty();
 extern Task getTask();
 extern bool putTask(Task val);
 
