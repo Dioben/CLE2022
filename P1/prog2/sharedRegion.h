@@ -31,8 +31,7 @@ extern void initResult(int fileIndex, int matrixCount);
 extern void updateResult(int fileIndex, int matrixIndex, double determinant);
 extern Result *getResults();
 extern bool isTaskListEmpty();
-extern bool isTaskListFull();
 extern Task getTask();
-extern void putTask(Task val);
+extern bool putTask(Task val);
 
 #endif

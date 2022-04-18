@@ -23,7 +23,6 @@ static pthread_mutex_t assignedFileCountAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t readerCountAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t fifoAccess = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t fifoFull;
 static pthread_cond_t fifoEmpty;
 
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _fifoSize, int workerCount)
@@ -45,7 +44,6 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _f
     }
     taskFIFO = malloc(sizeof(Task) * fifoSize);
 
-    pthread_cond_init(&fifoFull, NULL);
     pthread_cond_init(&fifoEmpty, NULL);
 }
 
@@ -173,22 +171,6 @@ bool isTaskListEmpty()
     return val;
 }
 
-bool isTaskListFull()
-{
-    bool val;
-    int status;
-
-    if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
-        throwThreadError(status, "Error on isTaskListFull() lock");
-
-    val = full;
-
-    if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
-        throwThreadError(status, "Error on isTaskListFull() unlock");
-
-    return val;
-}
-
 Task getTask()
 {
     Task val;
@@ -205,33 +187,36 @@ Task getTask()
     ri = (ri + 1) % fifoSize;
     full = false;
 
-    if ((status = pthread_cond_signal(&fifoFull)) != 0)
-        throwThreadError(status, "Error on getTask() fifoFull signal");
-
     if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on getTask() unlock");
 
     return val;
 }
 
-void putTask(Task val)
+bool putTask(Task task)
 {
+    bool val = true;
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on putTask() lock");
 
-    while (full)
-        if ((status = pthread_cond_wait(&fifoFull, &fifoAccess)) != 0)
-            throwThreadError(status, "Error on putTask() fifoFull wait");
+    if (full)
+    {
+        val = false;
+    }
+    else
+    {
+        taskFIFO[ii] = task;
+        ii = (ii + 1) % fifoSize;
+        full = (ii == ri);
 
-    taskFIFO[ii] = val;
-    ii = (ii + 1) % fifoSize;
-    full = (ii == ri);
-
-    if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
-        throwThreadError(status, "Error on putTask() fifoEmpty signal");
+        if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
+            throwThreadError(status, "Error on putTask() fifoEmpty signal");
+    }
 
     if ((status = pthread_mutex_unlock(&fifoAccess)) != 0)
         throwThreadError(status, "Error on putTask() unlock");
+    
+    return val;
 }

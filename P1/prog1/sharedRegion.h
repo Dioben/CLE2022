@@ -30,8 +30,7 @@ extern void decreaseReaderCount();
 extern void updateResult(int fileIndex, Result result);
 extern Result *getResults();
 extern bool isTaskListEmpty();
-extern bool isTaskListFull();
 extern Task getTask();
-extern void putTask(Task val);
+extern bool putTask(Task val);
 
 #endif

@@ -73,16 +73,12 @@ static void parseFile(int fileIndex)
     {
         double matrix[order][order];
         readMatrix(file, order, matrix);
-        if (!isTaskListFull())
-        {
-            Task task = {.matrixIndex = i,
-                         .fileIndex = fileIndex,
-                         .order = order};
-            task.matrix = malloc(sizeof(double) * order * order);
-            memcpy(task.matrix, matrix, sizeof(double) * order * order);
-            putTask(task);
-        }
-        else
+        Task task = {.matrixIndex = i,
+                        .fileIndex = fileIndex,
+                        .order = order};
+        task.matrix = malloc(sizeof(double) * order * order);
+        memcpy(task.matrix, matrix, sizeof(double) * order * order);
+        if (!putTask(task))
         {
             double determinant = calculateDeterminant(order, matrix);
             updateResult(fileIndex, i, determinant);

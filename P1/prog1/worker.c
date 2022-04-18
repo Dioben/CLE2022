@@ -249,9 +249,7 @@ static void parseFile(int fileIndex)
         if (task.byteCount < MAX_BYTES_READ - BYTES_READ_BUFFER)
             isEOF = true;
         task.fileIndex = fileIndex;
-        if (!isTaskListFull())
-            putTask(task);
-        else
+        if (!putTask(task))
         {
             updateResult(fileIndex, parseTask(task));
             free(task.bytes);
