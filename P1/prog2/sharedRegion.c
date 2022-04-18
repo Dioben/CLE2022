@@ -17,7 +17,6 @@ static Task *taskFIFO;
 static int ii;
 static int ri;
 static int full;               // boolean
-static int *resultInitialized; // boolean list
 
 static pthread_mutex_t assignedFileCountAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t readerCountAccess = PTHREAD_MUTEX_INITIALIZER;
@@ -25,7 +24,6 @@ static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t fifoAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t fifoFull;
 static pthread_cond_t fifoEmpty;
-static pthread_cond_t *resultInitializedCond;
 
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _fifoSize, int workerCount)
 {
@@ -42,13 +40,6 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _f
 
     pthread_cond_init(&fifoFull, NULL);
     pthread_cond_init(&fifoEmpty, NULL);
-    resultInitialized = malloc(sizeof(int) * totalFileCount);
-    resultInitializedCond = malloc(sizeof(pthread_cond_t) * totalFileCount);
-    for (int i = 0; i < totalFileCount; i++)
-    {
-        resultInitialized[i] = 0;
-        pthread_cond_init(&resultInitializedCond[i], NULL);
-    }
 }
 
 void freeSharedRegion()
@@ -57,8 +48,6 @@ void freeSharedRegion()
         free(results[i].determinants);
     free(results);
     free(taskFIFO);
-    free(resultInitialized);
-    free(resultInitializedCond);
 }
 
 void throwThreadError(int error, char *string)
@@ -142,11 +131,6 @@ void initResult(int fileIndex, int matrixCount)
     results[fileIndex].matrixCount = matrixCount;
     results[fileIndex].determinants = malloc(sizeof(double) * matrixCount);
 
-    resultInitialized[fileIndex] = 1;
-
-    if ((status = pthread_cond_signal(&resultInitializedCond[fileIndex])) != 0)
-        throwThreadError(status, "Error on initResult() resultInitializedCond signal");
-
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on initResult() unlock");
 }
@@ -157,10 +141,6 @@ void updateResult(int fileIndex, int matrixIndex, double determinant)
 
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on updateResult() lock");
-
-    while (!resultInitialized[fileIndex])
-        if ((status = pthread_cond_wait(&resultInitializedCond[fileIndex], &resultsAccess)) != 0)
-            throwThreadError(status, "Error on updateResult() resultInitializedCond wait");
 
     results[fileIndex].determinants[matrixIndex] = determinant;
 
