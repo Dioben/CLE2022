@@ -106,6 +106,7 @@ void *worker(void *par)
     while ((task = getTask()).fileIndex != -1)
     {
         double matrix[task.order][task.order];
+        // while this memcpy isn't necessary, -Wall throws a warning on compiling if not used
         memcpy(matrix, task.matrix, sizeof(double) * task.order * task.order);
         free(task.matrix);
         double determinant = calculateDeterminant(task.order, matrix);
