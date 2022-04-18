@@ -273,11 +273,9 @@ void *worker(void *par)
         parseFile(fileIndex);
     }
     decreaseReaderCount();
-    while (true)
+    Task task;
+    while ((task = getTask()).fileIndex != -1)
     {
-        Task task = getTask();
-        if (task.fileIndex == -1)
-            break;
         updateResult(task.fileIndex, parseTask(task));
         free(task.bytes);
     }
