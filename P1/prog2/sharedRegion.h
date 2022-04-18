@@ -1,6 +1,8 @@
 #ifndef SHARED_REGION_H_
 #define SHARED_REGION_H_
 
+#include <stdbool.h>
+
 typedef struct Task
 {
     int fileIndex;
@@ -28,8 +30,8 @@ extern void decreaseReaderCount();
 extern void initResult(int fileIndex, int matrixCount);
 extern void updateResult(int fileIndex, int matrixIndex, double determinant);
 extern Result *getResults();
-extern int isTaskListEmpty();
-extern int isTaskListFull();
+extern bool isTaskListEmpty();
+extern bool isTaskListFull();
 extern Task getTask();
 extern void putTask(Task val);
 

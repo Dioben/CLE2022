@@ -22,7 +22,7 @@ static void printUsage(char *cmdName)
                     "  OPTIONS:\n"
                     "  -h      --- print this help\n"
                     "  -f      --- file names, space separated\n"
-                    "  -w      --- worker thread count\n",
+                    "  -w      --- worker thread count (default: 2)\n",
             cmdName);
 }
 
@@ -97,11 +97,7 @@ CMDArgs parseCMD(int argc, char *args[])
     }
     if (cmdArgs.workerCount == -1)
     {
-        fprintf(stderr, "%s: worker thread count is missing\n", basename(args[0]));
-        printUsage(basename(args[0]));
-        if (!(filestart == -1 || filespan == 0))
-            free(cmdArgs.fileNames);
-        return cmdArgs;
+        cmdArgs.workerCount = 2;
     }
     cmdArgs.status = EXIT_SUCCESS;
     return cmdArgs;
@@ -116,7 +112,7 @@ int main(int argc, char **args)
     int fileCount = cmdArgs.fileCount;
     char **fileNames = cmdArgs.fileNames;
     int workerCount = cmdArgs.workerCount;
-    int fifoSize = 64;
+    int fifoSize = workerCount * 10;
 
     double t = ((double) clock()) / CLOCKS_PER_SEC; // timer
 

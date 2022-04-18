@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #include "sharedRegion.h"
 
@@ -16,7 +17,7 @@ static int fifoSize;
 static Task *taskFIFO;
 static int ii;
 static int ri;
-static int full;               // boolean
+static bool full;
 
 static pthread_mutex_t assignedFileCountAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t readerCountAccess = PTHREAD_MUTEX_INITIALIZER;
@@ -28,7 +29,7 @@ static pthread_cond_t fifoEmpty;
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _fifoSize, int workerCount)
 {
     assignedFileCount = ii = ri = 0;
-    full = 0;
+    full = false;
 
     totalFileCount = _totalFileCount;
     files = _files;
@@ -164,9 +165,9 @@ Result *getResults()
     return val;
 }
 
-int isTaskListEmpty()
+bool isTaskListEmpty()
 {
-    int val;
+    bool val;
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
@@ -180,9 +181,9 @@ int isTaskListEmpty()
     return val;
 }
 
-int isTaskListFull()
+bool isTaskListFull()
 {
-    int val;
+    bool val;
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess)) != 0)
@@ -210,7 +211,7 @@ Task getTask()
 
     val = taskFIFO[ri];
     ri = (ri + 1) % fifoSize;
-    full = 0;
+    full = false;
 
     if ((status = pthread_cond_signal(&fifoFull)) != 0)
         throwThreadError(status, "Error on getTask() fifoFull signal");
