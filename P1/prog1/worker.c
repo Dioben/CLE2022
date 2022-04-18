@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "worker.h"
 #include "sharedRegion.h"
@@ -69,7 +70,7 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
     return letter;
 }
 
-int isBridge(int letter)
+bool isBridge(int letter)
 {
     return (
         letter == 0x27                              // '
@@ -78,7 +79,7 @@ int isBridge(int letter)
     );
 }
 
-int isVowel(int letter)
+bool isVowel(int letter)
 {
     return (
         letter == 0x41                            // A
@@ -104,7 +105,7 @@ int isVowel(int letter)
     );
 }
 
-int isConsonant(int letter)
+bool isConsonant(int letter)
 {
     return (
         letter == 0xc387                      // Ç
@@ -122,7 +123,7 @@ int isConsonant(int letter)
     );
 }
 
-int isSeparator(int letter)
+bool isSeparator(int letter)
 {
     return (
         letter == 0x20                              // space
@@ -159,7 +160,7 @@ static Task readBytes(FILE *file)
         return task;
     }
 
-    while (1)
+    while (true)
     {
         if (byte0utf8(bytes[task.byteCount - 1]))
             break;
@@ -240,13 +241,13 @@ static void parseFile(int fileIndex)
     FILE *file = fopen(files[fileIndex], "rb");
     if (file == NULL)
         return;
-    int isEOF = 0;
+    bool isEOF = false;
     Task task;
     while (!isEOF)
     {
         task = readBytes(file);
         if (task.byteCount < MAX_BYTES_READ - BYTES_READ_BUFFER)
-            isEOF = 1;
+            isEOF = true;
         task.fileIndex = fileIndex;
         if (!isTaskListFull())
             putTask(task);
