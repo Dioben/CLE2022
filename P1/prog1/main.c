@@ -29,7 +29,7 @@ static void printUsage(char *cmdName)
 CMDArgs parseCMD(int argc, char *args[])
 {
     CMDArgs cmdArgs;
-    cmdArgs.workerCount = -1;
+    cmdArgs.workerCount = 2;
     cmdArgs.status = EXIT_FAILURE;
     int opt;
     opterr = 0;
@@ -94,10 +94,6 @@ CMDArgs parseCMD(int argc, char *args[])
         fprintf(stderr, "%s: file name is missing\n", basename(args[0]));
         printUsage(basename(args[0]));
         return cmdArgs;
-    }
-    if (cmdArgs.workerCount == -1)
-    {
-        cmdArgs.workerCount = 2;
     }
     cmdArgs.status = EXIT_SUCCESS;
     return cmdArgs;
