@@ -249,9 +249,7 @@ static void parseFile(int fileIndex)
         if (task.byteCount < MAX_BYTES_READ - BYTES_READ_BUFFER)
             isEOF = true;
         task.fileIndex = fileIndex;
-        if (!isTaskListFull())
-            putTask(task);
-        else
+        if (!putTask(task))
         {
             updateResult(fileIndex, parseTask(task));
             free(task.bytes);
@@ -261,25 +259,23 @@ static void parseFile(int fileIndex)
 
 void *worker(void *par)
 {
-    while (getAssignedFileCount() < totalFileCount)
+    int fileIndex;
+    while ((fileIndex = getNewFileIndex()) < totalFileCount)
     {
-        int *fileIndex = getNewFileIndex();
-        if (fileIndex[0] == EXIT_FAILURE)
+        if (fileIndex < 0)
         {
-            if (fileIndex[1] == -1)
+            if (fileIndex == -1)
                 perror("Error on getNewFileIndex() lock");
             else
                 perror("Error on getNewFileIndex() unlock");
-            free(fileIndex);
             continue;
         }
-        parseFile(fileIndex[1]);
-        free(fileIndex);
+        parseFile(fileIndex);
     }
     decreaseReaderCount();
-    while (!isTaskListEmpty() || getReaderCount() > 0)
+    Task task;
+    while ((task = getTask()).fileIndex != -1)
     {
-        Task task = getTask();
         updateResult(task.fileIndex, parseTask(task));
         free(task.bytes);
     }

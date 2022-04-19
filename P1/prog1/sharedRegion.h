@@ -23,15 +23,11 @@ extern char **files;
 extern void initSharedRegion(int _totalFileCount, char *_files[], int _fifoSize, int workerCount);
 extern void freeSharedRegion();
 extern void throwThreadError(int error, char *string);
-extern int *getNewFileIndex();
-extern int getAssignedFileCount();
-extern int getReaderCount();
+extern int getNewFileIndex();
 extern void decreaseReaderCount();
 extern void updateResult(int fileIndex, Result result);
 extern Result *getResults();
-extern bool isTaskListEmpty();
-extern bool isTaskListFull();
 extern Task getTask();
-extern void putTask(Task val);
+extern bool putTask(Task val);
 
 #endif

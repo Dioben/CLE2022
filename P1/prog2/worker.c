@@ -38,9 +38,9 @@ static double calculateDeterminant(int order, double matrix[order][order])
                 return 0;
             determinant *= -1;
             double tempRow[order];
-            memcpy(tempRow, matrix[i], sizeof(double)*order);
-            memcpy(matrix[i], matrix[foundJ], sizeof(double)*order);
-            memcpy(matrix[foundJ], tempRow, sizeof(double)*order);
+            memcpy(tempRow, matrix[i], sizeof(double) * order);
+            memcpy(matrix[i], matrix[foundJ], sizeof(double) * order);
+            memcpy(matrix[foundJ], tempRow, sizeof(double) * order);
         }
         for (int k = i + 1; k < order; k++)
         {
@@ -73,16 +73,12 @@ static void parseFile(int fileIndex)
     {
         double matrix[order][order];
         readMatrix(file, order, matrix);
-        if (!isTaskListFull())
-        {
-            Task task = {.matrixIndex = i,
-                         .fileIndex = fileIndex,
-                         .order = order};
-            task.matrix = malloc(sizeof(double) * order * order);
-            memcpy(task.matrix, matrix, sizeof(double) * order * order);
-            putTask(task);
-        }
-        else
+        Task task = {.matrixIndex = i,
+                     .fileIndex = fileIndex,
+                     .order = order};
+        task.matrix = malloc(sizeof(double) * order * order);
+        memcpy(task.matrix, matrix, sizeof(double) * order * order);
+        if (!putTask(task))
         {
             double determinant = calculateDeterminant(order, matrix);
             updateResult(fileIndex, i, determinant);
@@ -92,26 +88,25 @@ static void parseFile(int fileIndex)
 
 void *worker(void *par)
 {
-    while (getAssignedFileCount() < totalFileCount)
+    int fileIndex;
+    while ((fileIndex = getNewFileIndex()) < totalFileCount)
     {
-        int *fileIndex = getNewFileIndex();
-        if (fileIndex[0] == EXIT_FAILURE)
+        if (fileIndex < 0)
         {
-            if (fileIndex[1] == -1)
+            if (fileIndex == -1)
                 perror("Error on getNewFileIndex() lock");
             else
                 perror("Error on getNewFileIndex() unlock");
-            free(fileIndex);
             continue;
         }
-        parseFile(fileIndex[1]);
-        free(fileIndex);
+        parseFile(fileIndex);
     }
     decreaseReaderCount();
-    while (!isTaskListEmpty() || getReaderCount() > 0)
+    Task task;
+    while ((task = getTask()).fileIndex != -1)
     {
-        Task task = getTask();
         double matrix[task.order][task.order];
+        // while this memcpy isn't necessary, -Wall throws a warning on compiling if not used
         memcpy(matrix, task.matrix, sizeof(double) * task.order * task.order);
         free(task.matrix);
         double determinant = calculateDeterminant(task.order, matrix);
