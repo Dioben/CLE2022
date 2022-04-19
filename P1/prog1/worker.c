@@ -3,14 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #include "worker.h"
 #include "sharedRegion.h"
 
-#define byte0utf8(byte) !((byte & 0x000000ff) >> 7)
-#define byte1utf8(byte) ((byte & 0x000000ff) >= 192 && (byte & 0x000000ff) <= 223)
-#define byte2utf8(byte) ((byte & 0x000000ff) >= 224 && (byte & 0x000000ff) <= 239)
-#define byte3utf8(byte) ((byte & 0x000000ff) >= 224 && (byte & 0x000000ff) <= 239)
+#define byte0utf8(byte) !(byte >> 7)
+#define byte1utf8(byte) (byte >= 192 && byte <= 223)
+#define byte2utf8(byte) (byte >= 224 && byte <= 239)
+#define byte3utf8(byte) (byte >= 240 && byte <= 247)
 
 static const int MAX_BYTES_READ = 500;
 static const int BYTES_READ_BUFFER = 50;
@@ -21,17 +22,10 @@ int readLetterFromFile(FILE *file)
     if (fread(&letter, 1, 1, file) != 1)
         return EOF;
 
-    int loops = 0;
-    if (byte0utf8(letter))
-        return letter;
-    else if (byte1utf8(letter))
-        loops = 1;
-    else if (byte2utf8(letter))
-        loops = 2;
-    else if (byte3utf8(letter))
-        loops = 3;
-    else
+    int loops = -1 + byte0utf8(letter) + 2 * byte1utf8(letter) + 3 * byte2utf8(letter) + 4 * byte3utf8(letter);
+    if (loops < 0)
     {
+        errno = EINVAL;
         perror("Invalid text found");
         return EOF;
     }
@@ -47,19 +41,14 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
 {
     int letter = bytes[(*bytesRead)++] & 0x000000ff;
 
-    int loops = 0;
-    if (byte0utf8(letter))
-        return letter;
-    else if (byte1utf8(letter))
-        loops = 1;
-    else if (byte2utf8(letter))
-        loops = 2;
-    else if (byte3utf8(letter))
-        loops = 3;
-    else
+    int loops = -1 + byte0utf8(letter) + 2 * byte1utf8(letter) + 3 * byte2utf8(letter) + 4 * byte3utf8(letter);
+    if (loops < 0)
     {
-        // used to find end of bytes so this perror triggers a lot even though it isnt an error
-        // perror("Invalid text or EOF found");
+        if (letter != 0x000000ff)
+        {
+            errno = EINVAL;
+            perror("Invalid text found");
+        }
         return EOF;
     }
     for (int i = 0; i < loops; i++)
@@ -155,21 +144,16 @@ static Task readBytes(FILE *file)
 
     if (task.byteCount != MAX_BYTES_READ - BYTES_READ_BUFFER)
     {
-        bytes[task.byteCount] = 0xff;
+        bytes[task.byteCount] = EOF;
         memcpy(task.bytes, bytes, sizeof(char) * MAX_BYTES_READ);
         return task;
     }
 
     while (true)
     {
-        if (byte0utf8(bytes[task.byteCount - 1]))
-            break;
-        else if (byte1utf8(bytes[task.byteCount - 1]))
-            task.byteCount += fread(&bytes[task.byteCount], 1, 1, file);
-        else if (byte2utf8(bytes[task.byteCount - 1]))
-            task.byteCount += fread(&bytes[task.byteCount], 1, 2, file);
-        else if (byte3utf8(bytes[task.byteCount - 1]))
-            task.byteCount += fread(&bytes[task.byteCount], 1, 3, file);
+        int loops = -1 + byte0utf8(bytes[task.byteCount - 1]) + 2 * byte1utf8(bytes[task.byteCount - 1]) + 3 * byte2utf8(bytes[task.byteCount - 1]) + 4 * byte3utf8(bytes[task.byteCount - 1]);
+        if (loops >= 0)
+            task.byteCount += fread(&bytes[task.byteCount], 1, loops, file);
         else
         {
             if (fread(&bytes[task.byteCount], 1, 1, file) != 1)
@@ -190,7 +174,7 @@ static Task readBytes(FILE *file)
         }
     } while (!(isSeparator(letter) || isBridge(letter) || letter == EOF));
 
-    bytes[task.byteCount] = 0xff;
+    bytes[task.byteCount] = EOF;
     memcpy(task.bytes, bytes, sizeof(char) * MAX_BYTES_READ);
 
     return task;
@@ -265,9 +249,15 @@ void *worker(void *par)
         if (fileIndex < 0)
         {
             if (fileIndex == -1)
+            {
+                errno = EDEADLK;
                 perror("Error on getNewFileIndex() lock");
+            }
             else
+            {
+                errno = EDEADLK;
                 perror("Error on getNewFileIndex() unlock");
+            }
             continue;
         }
         parseFile(fileIndex);

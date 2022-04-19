@@ -134,11 +134,11 @@ Task getTask()
         throwThreadError(status, "Error on getTask() lock");
 
     // trying to lock readerCountAccess doesn't work here, even if readerCount is stored in a tmp variable at the start of the func
-    while (((ii == ri) && !full) && readerCount > 0)
+    while ((ii == ri && !full) && readerCount > 0)
         if ((status = pthread_cond_wait(&fifoEmpty, &fifoAccess)) != 0)
             throwThreadError(status, "Error on getTask() fifoEmpty wait");
 
-    if (!((ii == ri) && !full))
+    if (!(ii == ri && !full))
     {
         val = taskFIFO[ri];
         ri = (ri + 1) % fifoSize;
