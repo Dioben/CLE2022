@@ -139,8 +139,8 @@ static Task readBytes(FILE *file)
     Task task = {.fileIndex = -1,
                  .byteCount = -1,
                  .bytes = malloc(sizeof(char) * MAX_BYTES_READ)};
-    char bytes[MAX_BYTES_READ];
-    task.byteCount = fread(&bytes, 1, (MAX_BYTES_READ - BYTES_READ_BUFFER), file);
+    char *bytes = malloc(sizeof(char) * MAX_BYTES_READ);
+    task.byteCount = fread(bytes, 1, (MAX_BYTES_READ - BYTES_READ_BUFFER), file);
 
     if (task.byteCount != MAX_BYTES_READ - BYTES_READ_BUFFER)
     {
@@ -153,7 +153,7 @@ static Task readBytes(FILE *file)
     {
         int loops = -1 + byte0utf8(bytes[task.byteCount - 1]) + 2 * byte1utf8(bytes[task.byteCount - 1]) + 3 * byte2utf8(bytes[task.byteCount - 1]) + 4 * byte3utf8(bytes[task.byteCount - 1]);
         if (loops >= 0)
-            task.byteCount += fread(&bytes[task.byteCount], 1, loops, file);
+            task.byteCount += fread(bytes + task.byteCount, 1, loops, file);
         else
         {
             if (fread(&bytes[task.byteCount], 1, 1, file) != 1)
@@ -164,8 +164,14 @@ static Task readBytes(FILE *file)
         break;
     }
     int letter;
+    int localMaxBytes = MAX_BYTES_READ;
     do
     {
+        if (task.byteCount >= localMaxBytes - 10)
+        {
+            localMaxBytes += 100;
+            bytes = (char *)realloc(bytes, localMaxBytes);
+        }
         letter = readLetterFromFile(file);
         int loops = ((letter & 0xff000000) != 0) + ((letter & 0xffff0000) != 0) + ((letter & 0xffffff00) != 0);
         for (int i = loops; i >= 0; i--)
