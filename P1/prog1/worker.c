@@ -139,24 +139,22 @@ static Task readBytes(FILE *file)
     Task task = {.fileIndex = -1,
                  .byteCount = -1,
                  .bytes = malloc(sizeof(char) * MAX_BYTES_READ)};
-    char *bytes = malloc(sizeof(char) * MAX_BYTES_READ);
-    task.byteCount = fread(bytes, 1, (MAX_BYTES_READ - BYTES_READ_BUFFER), file);
+    task.byteCount = fread(task.bytes, 1, (MAX_BYTES_READ - BYTES_READ_BUFFER), file);
 
     if (task.byteCount != MAX_BYTES_READ - BYTES_READ_BUFFER)
     {
-        bytes[task.byteCount] = EOF;
-        memcpy(task.bytes, bytes, sizeof(char) * MAX_BYTES_READ);
+        task.bytes[task.byteCount] = EOF;
         return task;
     }
 
     while (true)
     {
-        int loops = -1 + byte0utf8(bytes[task.byteCount - 1]) + 2 * byte1utf8(bytes[task.byteCount - 1]) + 3 * byte2utf8(bytes[task.byteCount - 1]) + 4 * byte3utf8(bytes[task.byteCount - 1]);
+        int loops = -1 + byte0utf8(task.bytes[task.byteCount - 1]) + 2 * byte1utf8(task.bytes[task.byteCount - 1]) + 3 * byte2utf8(task.bytes[task.byteCount - 1]) + 4 * byte3utf8(task.bytes[task.byteCount - 1]);
         if (loops >= 0)
-            task.byteCount += fread(bytes + task.byteCount, 1, loops, file);
+            task.byteCount += fread(task.bytes + task.byteCount, 1, loops, file);
         else
         {
-            if (fread(&bytes[task.byteCount], 1, 1, file) != 1)
+            if (fread(task.bytes + task.byteCount, 1, 1, file) != 1)
                 break;
             task.byteCount++;
             continue;
@@ -170,18 +168,17 @@ static Task readBytes(FILE *file)
         if (task.byteCount >= localMaxBytes - 10)
         {
             localMaxBytes += 100;
-            bytes = (char *)realloc(bytes, localMaxBytes);
+            task.bytes = (char *)realloc(task.bytes, localMaxBytes);
         }
         letter = readLetterFromFile(file);
         int loops = ((letter & 0xff000000) != 0) + ((letter & 0xffff0000) != 0) + ((letter & 0xffffff00) != 0);
         for (int i = loops; i >= 0; i--)
         {
-            bytes[task.byteCount++] = letter >> (8 * i);
+            task.bytes[task.byteCount++] = letter >> (8 * i);
         }
     } while (!(isSeparator(letter) || isBridge(letter) || letter == EOF));
 
-    bytes[task.byteCount] = EOF;
-    memcpy(task.bytes, bytes, sizeof(char) * MAX_BYTES_READ);
+    task.bytes[task.byteCount] = EOF;
 
     return task;
 }
