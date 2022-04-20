@@ -98,7 +98,7 @@ CMDArgs parseCMD(int argc, char *args[])
             cmdArgs.workerCount = atoi(optarg);
             if (cmdArgs.workerCount <= 0)
             {
-                fprintf(stderr, "%s: non positive number\n", basename(args[0]));
+                fprintf(stderr, "%s: non positive worker count\n", basename(args[0]));
                 printUsage(basename(args[0]));
                 if (!(filestart == -1 || filespan == 0))
                     free(cmdArgs.fileNames);
