@@ -139,6 +139,7 @@ int getNewFileIndex()
 
 /**
  * @brief Informs shared region that the number of workers reading files has decreased.
+ * Broadcasts to allow FIFO access if all IO readers have finished
  */
 void decreaseReaderCount()
 {
