@@ -25,6 +25,13 @@ static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t fifoAccess = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t fifoEmpty;
 
+static void throwThreadError(int error, char *string)
+{
+    errno = error;
+    perror(string);
+    pthread_exit((int *)EXIT_FAILURE);
+}
+
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _fifoSize, int workerCount)
 {
     assignedFileCount = ii = ri = 0;
@@ -47,13 +54,6 @@ void freeSharedRegion()
         free(results[i].determinants);
     free(results);
     free(taskFIFO);
-}
-
-void throwThreadError(int error, char *string)
-{
-    errno = error;
-    perror(string);
-    pthread_exit((int *)EXIT_FAILURE);
 }
 
 int getNewFileIndex()

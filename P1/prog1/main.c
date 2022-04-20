@@ -1,3 +1,14 @@
+/**
+ * @file main.c (implementation file)
+ *
+ * @brief Problem name: word count
+ *
+ * TODO: add description
+ *
+ * @author Pedro Casimiro, nmec: 93179
+ * @author Diogo Bento, nmec: 93391
+ */
+
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -8,6 +19,14 @@
 #include "worker.h"
 #include "sharedRegion.h"
 
+/**
+ * @brief Struct containing the command line argument values.
+ *
+ * "status" - if the file was called correctly.
+ * "fileCount" - count of the files given.
+ * "fileNames" - array of file names given.
+ * "workerCount" - count of the workers to be created.
+ */
 typedef struct CMDArgs
 {
     int status;
@@ -16,6 +35,11 @@ typedef struct CMDArgs
     int workerCount;
 } CMDArgs;
 
+/**
+ * \brief Prints correct usage of this file
+ *
+ * \param cmdName name of the file
+ */
 static void printUsage(char *cmdName)
 {
     fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
@@ -26,6 +50,13 @@ static void printUsage(char *cmdName)
             cmdName);
 }
 
+/**
+ * @brief Processes the command line and returns a struct with the argument values.
+ *
+ * @param argc argument count
+ * @param args argument array
+ * @return CMDArgs struct with all the argument values
+ */
 CMDArgs parseCMD(int argc, char *args[])
 {
     CMDArgs cmdArgs;
@@ -99,6 +130,15 @@ CMDArgs parseCMD(int argc, char *args[])
     return cmdArgs;
 }
 
+/**
+ * @brief Main thread.
+ *
+ * Its role is generating the worker threads, waiting for their termination, and printing the end result.
+ *
+ * @param argc argument count
+ * @param args argument array
+ * @return whether the main thread was executed correctly or not
+ */
 int main(int argc, char **args)
 {
     CMDArgs cmdArgs = parseCMD(argc, args);
@@ -110,7 +150,7 @@ int main(int argc, char **args)
     int workerCount = cmdArgs.workerCount;
     int fifoSize = workerCount * 10;
 
-    double t = ((double) clock()) / CLOCKS_PER_SEC; // timer
+    double t = ((double)clock()) / CLOCKS_PER_SEC; // timer
 
     initSharedRegion(fileCount, fileNames, fifoSize, workerCount);
 
@@ -135,7 +175,7 @@ int main(int argc, char **args)
         }
     }
 
-    printf("Elapsed time = %.6fs\n", (((double) clock()) / CLOCKS_PER_SEC) - t);
+    printf("Elapsed time = %.6fs\n", (((double)clock()) / CLOCKS_PER_SEC) - t);
 
     Result *results = getResults();
     printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");

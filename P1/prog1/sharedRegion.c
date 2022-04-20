@@ -1,3 +1,14 @@
+/**
+ * @file sharedRegion.c (implementation file)
+ *
+ * @brief Problem name: word count
+ *
+ * TODO: add description
+ *
+ * @author Pedro Casimiro, nmec: 93179
+ * @author Diogo Bento, nmec: 93391
+ */
+
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -6,25 +17,74 @@
 
 #include "sharedRegion.h"
 
+/** @brief Number of files to be processed. */
 int totalFileCount;
+
+/** @brief Array with the file names of all files. */
 char **files;
 
+/** @brief Number of files assigned to workers. */
 static int assignedFileCount;
+
+/** @brief Number of workers reading a file. */
 static int readerCount;
+
+/** @brief Array of the results for each file. */
 static Result *results;
 
+/** @brief Max number of items the task FIFO can contain. */
 static int fifoSize;
+
+/** @brief FIFO with all the queued tasks. */
 static Task *taskFIFO;
+
+/** @brief Insertion pointer to the task FIFO. */
 static int ii;
+
+/** @brief Retrieval pointer to the task FIFO. */
 static int ri;
+
+/** @brief Flag signaling the task FIFO is full. */
 static bool full;
 
+/** @brief Locking flag which warrants mutual exclusion while accessing the assignedFileCount variable. */
 static pthread_mutex_t assignedFileCountAccess = PTHREAD_MUTEX_INITIALIZER;
+
+/** @brief Locking flag which warrants mutual exclusion while accessing the readerCount variable. */
 static pthread_mutex_t readerCountAccess = PTHREAD_MUTEX_INITIALIZER;
+
+/** @brief Locking flag which warrants mutual exclusion while accessing the results array. */
 static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
+
+/** @brief Locking flag which warrants mutual exclusion while accessing the task FIFO. */
 static pthread_mutex_t fifoAccess = PTHREAD_MUTEX_INITIALIZER;
+
+/** @brief Synchronization point when the task FIFO is empty. */
 static pthread_cond_t fifoEmpty;
 
+/**
+ * @brief Throws error and stops thread that threw.
+ *
+ * @param error error code
+ * @param string error description
+ */
+static void throwThreadError(int error, char *string)
+{
+    errno = error;
+    perror(string);
+    pthread_exit((int *)EXIT_FAILURE);
+}
+
+/**
+ * @brief Initializes the shared region.
+ *
+ * Needs to be called before anything else in this file.
+ *
+ * @param _totalFileCount number of files to be processed
+ * @param _files array with the file names of all files
+ * @param _fifoSize max number of items the task FIFO can contain
+ * @param workerCount number of workers accessing this shared region
+ */
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _fifoSize, int workerCount)
 {
     assignedFileCount = ii = ri = 0;
@@ -48,19 +108,24 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _f
     pthread_cond_init(&fifoEmpty, NULL);
 }
 
+/**
+ * @brief Frees all memory allocated during initialization.
+ *
+ * Should be called after the shared region has stopped being used.
+ */
 void freeSharedRegion()
 {
     free(results);
     free(taskFIFO);
 }
 
-void throwThreadError(int error, char *string)
-{
-    errno = error;
-    perror(string);
-    pthread_exit((int *)EXIT_FAILURE);
-}
-
+/**
+ * @brief Gets the index of the next file to be read.
+ *
+ * Autoincrements index on call.
+ *
+ * @return index of the file
+ */
 int getNewFileIndex()
 {
     int val;
@@ -77,6 +142,9 @@ int getNewFileIndex()
     return val;
 }
 
+/**
+ * @brief Informs shared region that the number of workers reading files has decreased.
+ */
 void decreaseReaderCount()
 {
     int status;
@@ -94,6 +162,12 @@ void decreaseReaderCount()
         throwThreadError(status, "Error on decreaseReaderCount() unlock");
 }
 
+/**
+ * @brief Updates result of a file.
+ *
+ * @param fileIndex index of the file which got an updated result
+ * @param result values used to update the result
+ */
 void updateResult(int fileIndex, Result result)
 {
     int status;
@@ -109,6 +183,11 @@ void updateResult(int fileIndex, Result result)
         throwThreadError(status, "Error on updateResult() unlock");
 }
 
+/**
+ * @brief Gets the results of all files.
+ *
+ * @return Result struct array with all the results
+ */
 Result *getResults()
 {
     Result *val;
@@ -125,6 +204,13 @@ Result *getResults()
     return val;
 }
 
+/**
+ * @brief Gets the next task from the FIFO.
+ *
+ * If FIFO is empty and there are no more workers reading files a Task struct with fileIndex=-1 is returned.
+ *
+ * @return Task struct
+ */
 Task getTask()
 {
     Task val;
@@ -138,6 +224,7 @@ Task getTask()
         if ((status = pthread_cond_wait(&fifoEmpty, &fifoAccess)) != 0)
             throwThreadError(status, "Error on getTask() fifoEmpty wait");
 
+    // if not empty
     if (!(ii == ri && !full))
     {
         val = taskFIFO[ri];
@@ -155,6 +242,12 @@ Task getTask()
     return val;
 }
 
+/**
+ * @brief Tries to put a new task into the FIFO.
+ *
+ * @param task Task struct to be put into the FIFO
+ * @return if task was put into the FIFO
+ */
 bool putTask(Task task)
 {
     bool val = true;

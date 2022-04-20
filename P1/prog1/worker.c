@@ -1,3 +1,15 @@
+/**
+ * @file worker.c (implementation file)
+ * 
+ * @brief Problem name: word count
+ * 
+ * TODO: add description
+ * 
+ * @author Pedro Casimiro, nmec: 93179
+ * @author Diogo Bento, nmec: 93391
+ */
+
+
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -8,20 +20,38 @@
 #include "worker.h"
 #include "sharedRegion.h"
 
+/** @brief If byte is a start of an UTF-8 character and implies a 1 byte length character. */
 #define byte0utf8(byte) !(byte >> 7)
+
+/** @brief If byte is a start of an UTF-8 character and implies a 2 byte length character. */
 #define byte1utf8(byte) (byte >= 192 && byte <= 223)
+
+/** @brief If byte is a start of an UTF-8 character and implies a 3 byte length character. */
 #define byte2utf8(byte) (byte >= 224 && byte <= 239)
+
+/** @brief If byte is a start of an UTF-8 character and implies a 4 byte length character. */
 #define byte3utf8(byte) (byte >= 240 && byte <= 247)
 
+/** @brief The initial max number of bytes of the text chunk in a task. */
 static const int MAX_BYTES_READ = 500;
+
+/** @brief How many bytes the first text read leaves empty. */
 static const int BYTES_READ_BUFFER = 50;
 
+/**
+ * @brief Reads an UTF-8 character from a file stream.
+ *
+ * @param file stream of the file to be read
+ * @return UTF-8 character
+ */
 int readLetterFromFile(FILE *file)
 {
     int letter = 0;
     if (fread(&letter, 1, 1, file) != 1)
         return EOF;
 
+    // how many extra bytes need to be read after the first to get a full character
+    // if -1 initial byte is invalid
     int loops = -1 + byte0utf8(letter) + 2 * byte1utf8(letter) + 3 * byte2utf8(letter) + 4 * byte3utf8(letter);
     if (loops < 0)
     {
@@ -29,21 +59,33 @@ int readLetterFromFile(FILE *file)
         perror("Invalid text found");
         return EOF;
     }
+
     for (int i = 0; i < loops; i++)
     {
         letter <<= 8;
         fread(&letter, 1, 1, file);
     }
+
     return letter;
 }
 
+/**
+ * @brief Reads an UTF-8 character from a byte array.
+ *
+ * @param bytesRead where to start reading the character
+ * @param bytes byte array
+ * @return UTF-8 character
+ */
 int readLetterFromBytes(int *bytesRead, char *bytes)
 {
     int letter = bytes[(*bytesRead)++] & 0x000000ff;
 
+    // how many extra bytes need to be read after the first to get a full character
+    // if -1 initial byte is either invalid or the end of the chunk
     int loops = -1 + byte0utf8(letter) + 2 * byte1utf8(letter) + 3 * byte2utf8(letter) + 4 * byte3utf8(letter);
     if (loops < 0)
     {
+        // if not end of the chunk
         if (letter != 0x000000ff)
         {
             errno = EINVAL;
@@ -51,14 +93,22 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
         }
         return EOF;
     }
+
     for (int i = 0; i < loops; i++)
     {
         letter <<= 8;
         letter += bytes[(*bytesRead)++] & 0x000000ff;
     }
+
     return letter;
 }
 
+/**
+ * @brief Returns if UTF-8 character is a bridge character.
+ *
+ * @param letter UTF-8 character
+ * @return if character is a bridge
+ */
 bool isBridge(int letter)
 {
     return (
@@ -67,7 +117,12 @@ bool isBridge(int letter)
         || 0xE28098 == letter || letter == 0xE28099 //  ’
     );
 }
-
+/**
+ * @brief Returns if UTF-8 character is a vowel.
+ *
+ * @param letter UTF-8 character
+ * @return if character is a vowel
+ */
 bool isVowel(int letter)
 {
     return (
@@ -93,7 +148,12 @@ bool isVowel(int letter)
         || (0xc3b9 == letter || letter == 0xc3ba) // ù ú
     );
 }
-
+/**
+ * @brief Returns if UTF-8 character is a consonant.
+ *
+ * @param letter UTF-8 character
+ * @return if character is a consonant
+ */
 bool isConsonant(int letter)
 {
     return (
@@ -111,7 +171,12 @@ bool isConsonant(int letter)
         || (0x76 <= letter && letter <= 0x7a) // v w x y z
     );
 }
-
+/**
+ * @brief Returns if UTF-8 character is a separator character.
+ *
+ * @param letter UTF-8 character
+ * @return if character is a separator
+ */
 bool isSeparator(int letter)
 {
     return (
@@ -134,6 +199,12 @@ bool isSeparator(int letter)
     );
 }
 
+/**
+ * @brief Reads a chunk from a file stream into a byte array.
+ *
+ * @param file file stream to be read
+ * @return Task struct with the number of bytes read and byte array
+ */
 static Task readBytes(FILE *file)
 {
     Task task = {.fileIndex = -1,
@@ -141,19 +212,28 @@ static Task readBytes(FILE *file)
                  .bytes = malloc(sizeof(char) * MAX_BYTES_READ)};
     task.byteCount = fread(task.bytes, 1, (MAX_BYTES_READ - BYTES_READ_BUFFER), file);
 
+    // if initial fread didn't read expected number of bytes it means it reached EOF
     if (task.byteCount != MAX_BYTES_READ - BYTES_READ_BUFFER)
     {
         task.bytes[task.byteCount] = EOF;
         return task;
     }
 
+    // if initial fread ended in the middle of a character, add enough bytes to
+    // make sure task.bytes ends at the end of a character
     while (true)
     {
+        // how many extra bytes need to be read after the first to get a full character
+        // if -1 byte is in the middle of a character
         int loops = -1 + byte0utf8(task.bytes[task.byteCount - 1]) + 2 * byte1utf8(task.bytes[task.byteCount - 1]) + 3 * byte2utf8(task.bytes[task.byteCount - 1]) + 4 * byte3utf8(task.bytes[task.byteCount - 1]);
         if (loops >= 0)
             task.byteCount += fread(task.bytes + task.byteCount, 1, loops, file);
         else
         {
+            // as current byte is in the middle of a character read another one
+            // and check again if its not in the middle
+
+            // if EOF, should never happen in a valid UTF-8 file
             if (fread(task.bytes + task.byteCount, 1, 1, file) != 1)
                 break;
             task.byteCount++;
@@ -161,17 +241,28 @@ static Task readBytes(FILE *file)
         }
         break;
     }
+
     int letter;
+
+    // used to realloc byte array if needed
     int localMaxBytes = MAX_BYTES_READ;
+
+    // read characters until the byte array doesn't end in the middle of a word
     do
     {
+        // if byte array is almost full, increase its size
         if (task.byteCount >= localMaxBytes - 10)
         {
             localMaxBytes += 100;
             task.bytes = (char *)realloc(task.bytes, localMaxBytes);
         }
+
         letter = readLetterFromFile(file);
+
+        // how many bytes this letter uses
         int loops = ((letter & 0xff000000) != 0) + ((letter & 0xffff0000) != 0) + ((letter & 0xffffff00) != 0);
+
+        // store character bytes into byte array
         for (int i = loops; i >= 0; i--)
         {
             task.bytes[task.byteCount++] = letter >> (8 * i);
@@ -183,17 +274,26 @@ static Task readBytes(FILE *file)
     return task;
 }
 
+/**
+ * @brief Calculates the result from a task.
+ *
+ * @param task Task struct
+ * @return Result struct
+ */
 static Result parseTask(Task task)
 {
     Result result = {.vowelStartCount = 0,
                      .consonantEndCount = 0,
                      .wordCount = 0};
     int bytesRead = 0;
+
+    // process all words in byte array
     while (bytesRead < task.byteCount)
     {
         int nextLetter = readLetterFromBytes(&bytesRead, task.bytes);
         int letter;
 
+        // while not part of a word, read next character
         while (isSeparator(nextLetter) || isBridge(nextLetter))
         {
             nextLetter = readLetterFromBytes(&bytesRead, task.bytes);
@@ -207,6 +307,7 @@ static Result parseTask(Task task)
         if (isVowel(nextLetter))
             result.vowelStartCount += 1;
 
+        // read characters until end of word
         do
         {
             letter = nextLetter;
@@ -223,6 +324,11 @@ static Result parseTask(Task task)
     return result;
 }
 
+/**
+ * @brief Uses a file to create the most tasks possible.
+ *
+ * @param fileIndex index of the file
+ */
 static void parseFile(int fileIndex)
 {
     FILE *file = fopen(files[fileIndex], "rb");
@@ -233,9 +339,15 @@ static void parseFile(int fileIndex)
     while (!isEOF)
     {
         task = readBytes(file);
+
+        // if there are less bytes than expected it means that EOF was reached
+        // TODO: EOF can be reached even if bytes read was above expectations
         if (task.byteCount < MAX_BYTES_READ - BYTES_READ_BUFFER)
             isEOF = true;
+
         task.fileIndex = fileIndex;
+
+        // if FIFO is full process task instead
         if (!putTask(task))
         {
             updateResult(fileIndex, parseTask(task));
@@ -244,9 +356,18 @@ static void parseFile(int fileIndex)
     }
 }
 
-void *worker(void *par)
+/**
+ * @brief Worker thread.
+ *
+ * Its role is both to read files to generate tasks and to calculate results from tasks.
+ *
+ * @return pointer to the identification of this thread
+ */
+void *worker()
 {
     int fileIndex;
+
+    // get a file and create tasks
     while ((fileIndex = getNewFileIndex()) < totalFileCount)
     {
         if (fileIndex < 0)
@@ -266,7 +387,10 @@ void *worker(void *par)
         parseFile(fileIndex);
     }
     decreaseReaderCount();
+
     Task task;
+
+    // while there are tasks process them
     while ((task = getTask()).fileIndex != -1)
     {
         updateResult(task.fileIndex, parseTask(task));
