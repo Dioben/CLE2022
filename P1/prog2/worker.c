@@ -6,11 +6,11 @@
 #include "worker.h"
 #include "sharedRegion.h"
 
-static void readMatrix(FILE *file, int order, double matrix[order][order])
+static void readMatrix(FILE *file, int order, double** matrix)
 {
     for (int x = 0; x < order; x++)
         for (int y = 0; y < order; y++)
-            fread(&matrix[x][y], 8, 1, file);
+            fread(matrix+x*order+y, 8, 1, file);
 }
 
 static double calculateDeterminant(int order, double matrix[order][order])
@@ -71,17 +71,17 @@ static void parseFile(int fileIndex)
     initResult(fileIndex, count);
     for (int i = 0; i < count; i++)
     {
-        double matrix[order][order];
+        double ** matrix = malloc(sizeof(double) * order * order);
         readMatrix(file, order, matrix);
         Task task = {.matrixIndex = i,
                      .fileIndex = fileIndex,
-                     .order = order};
-        task.matrix = malloc(sizeof(double) * order * order);
-        memcpy(task.matrix, matrix, sizeof(double) * order * order);
+                     .order = order,
+                     .matrix = matrix};
         if (!putTask(task))
         {
             double determinant = calculateDeterminant(order, matrix);
             updateResult(fileIndex, i, determinant);
+            free(task.matrix);
         }
     }
 }
@@ -105,11 +105,8 @@ void *worker(void *par)
     Task task;
     while ((task = getTask()).fileIndex != -1)
     {
-        double matrix[task.order][task.order];
-        // while this memcpy isn't necessary, -Wall throws a warning on compiling if not used
-        memcpy(matrix, task.matrix, sizeof(double) * task.order * task.order);
+        double determinant = calculateDeterminant(task.order, task.matrix);
         free(task.matrix);
-        double determinant = calculateDeterminant(task.order, matrix);
         updateResult(task.fileIndex, task.matrixIndex, determinant);
     }
 
