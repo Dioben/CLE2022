@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multithreaded determinant calculation
  *
- * TODO: add description
+ * Contains implementation of the worker threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391

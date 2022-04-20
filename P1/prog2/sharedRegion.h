@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multithreaded determinant calculation
  *
- * TODO: add description
+ * Shared region acessed by many threads at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
