@@ -1,7 +1,7 @@
 /**
  * @file sharedRegion.c (implementation file)
  *
- * @brief Problem name: word count
+ * @brief Problem name: multithreaded word count
  *
  * TODO: add description
  *
@@ -165,7 +165,7 @@ void decreaseReaderCount()
 /**
  * @brief Updates result of a file.
  *
- * @param fileIndex index of the file which got an updated result
+ * @param fileIndex index of the file
  * @param result values used to update the result
  */
 void updateResult(int fileIndex, Result result)

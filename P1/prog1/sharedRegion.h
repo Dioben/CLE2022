@@ -1,7 +1,7 @@
 /**
  * @file sharedRegion.h (interface file)
  *
- * @brief Problem name: word count
+ * @brief Problem name: multithreaded word count
  *
  * TODO: add description
  *

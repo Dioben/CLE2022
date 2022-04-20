@@ -1,14 +1,13 @@
 /**
  * @file worker.c (implementation file)
- * 
- * @brief Problem name: word count
- * 
+ *
+ * @brief Problem name: multithreaded word count
+ *
  * TODO: add description
- * 
+ *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
  */
-
 
 #include <stdio.h>
 #include <pthread.h>
@@ -325,7 +324,7 @@ static Result parseTask(Task task)
 }
 
 /**
- * @brief Uses a file to create the most tasks possible.
+ * @brief Uses a file to create tasks.
  *
  * @param fileIndex index of the file
  */
