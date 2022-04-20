@@ -8,7 +8,7 @@ typedef struct Task
     int fileIndex;
     int matrixIndex;
     int order;
-    double **matrix;
+    double* matrix;
 } Task;
 
 typedef struct Result
