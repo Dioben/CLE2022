@@ -175,7 +175,7 @@ int main(int argc, char **args)
         }
     }
 
-    printf("Elapsed time = %.6fs\n", (((double)clock()) / CLOCKS_PER_SEC) - t);
+    t = (((double)clock()) / CLOCKS_PER_SEC) - t;
 
     Result *results = getResults();
     printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");
@@ -186,6 +186,8 @@ int main(int argc, char **args)
 
     freeSharedRegion();
     free(cmdArgs.fileNames);
+
+    printf("\nElapsed time = %.6fs\n", t);
 
     exit(EXIT_SUCCESS);
 }
