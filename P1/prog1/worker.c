@@ -333,16 +333,18 @@ static void parseFile(int fileIndex)
     FILE *file = fopen(files[fileIndex], "rb");
     if (file == NULL)
         return;
-    bool isEOF = false;
     Task task;
-    while (!isEOF)
+
+    // while file has content create tasks
+    while (true)
     {
         task = readBytes(file);
 
-        // if there are less bytes than expected it means that EOF was reached
-        // TODO: EOF can be reached even if bytes read was above expectations
-        if (task.byteCount < MAX_BYTES_READ - BYTES_READ_BUFFER)
-            isEOF = true;
+        // if no bytes were read it means we reached EOF
+        if (task.byteCount == 0) {
+            free(task.bytes);
+            break;
+        }
 
         task.fileIndex = fileIndex;
 
