@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <string.h>
+#include <time.h>
 
 #include "worker.h"
 #include "sharedRegion.h"
@@ -141,6 +142,8 @@ CMDArgs parseCMD(int argc, char *args[])
  */
 int main(int argc, char **args)
 {
+    struct timespec start, finish; // time measurement
+
     CMDArgs cmdArgs = parseCMD(argc, args);
     if (cmdArgs.status == EXIT_FAILURE)
         return EXIT_FAILURE;
@@ -150,7 +153,7 @@ int main(int argc, char **args)
     int workerCount = cmdArgs.workerCount;
     int fifoSize = workerCount * 10;
 
-    double t = ((double)clock()) / CLOCKS_PER_SEC; // timer
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
     initSharedRegion(fileCount, fileNames, fifoSize, workerCount);
 
@@ -175,7 +178,7 @@ int main(int argc, char **args)
         }
     }
 
-    t = (((double)clock()) / CLOCKS_PER_SEC) - t;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
 
     Result *results = getResults();
     printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
@@ -190,7 +193,7 @@ int main(int argc, char **args)
     freeSharedRegion();
     free(cmdArgs.fileNames);
 
-    printf("\nElapsed time = %.6fs\n", t);
+    printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
 
     exit(EXIT_SUCCESS);
 }
