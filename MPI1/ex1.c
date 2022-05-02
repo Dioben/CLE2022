@@ -24,18 +24,17 @@ int main(int argc, char *argv[])
 
     if (rank == 0)
     {
-        printf("%d Sending out : %s\n",rank, data);
+        printf("%d Sending out : %s\n", rank, data);
         MPI_Send(data, strlen(data), MPI_CHAR, (rank + 1) % size, 0, MPI_COMM_WORLD);
-        MPI_Recv(recData, 100, MPI_CHAR, size-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        printf("%d Got : %s\n",rank, recData);
+        MPI_Recv(recData, 100, MPI_CHAR, size - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("%d Got : %s\n", rank, recData);
     }
     else
     {
-        MPI_Recv(recData, 100, MPI_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        printf("%d Got : %s\n",rank, recData);
-        printf("%d Sending out : %s\n",rank, data);
+        MPI_Recv(recData, 100, MPI_CHAR, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("%d Got : %s\n", rank, recData);
+        printf("%d Sending out : %s\n", rank, data);
         MPI_Send(data, strlen(data), MPI_CHAR, (rank + 1) % size, 0, MPI_COMM_WORLD);
-        
     }
 
     free(data);
