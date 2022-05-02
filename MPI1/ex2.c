@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     for (int i = 1; i < size; i++)
     {
       MPI_Recv(recData, 100, MPI_CHAR, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      printf("Got back: %s\n", recData);
+      printf("%d Got back: %s\n",rank, recData);
     }
   }
   else if (rank > 0)
