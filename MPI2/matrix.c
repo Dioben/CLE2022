@@ -36,8 +36,8 @@ int main(int argc, char *argv[])
         resultMatrix = malloc(sizeof(double) * matrixSize * matrixSize);
         
         for (int i = 0;i<matrixSize*matrixSize;i++){
-            matrix1[i] = rand()%500;
-            matrix2[i] = rand()%500;
+            matrix1[i] = rand()%100;
+            matrix2[i] = rand()%100;
         }
     }
     //init m1
@@ -51,9 +51,9 @@ int main(int argc, char *argv[])
     int count = (matrixSize* matrixSize) /size;
     int floor =  count * rank;
     int ceiling =  count * (rank+1);
-    double* localResults = malloc(sizeof(double)*count);
+    double* localResults = malloc(sizeof(double) * count);
     for (int i = floor;i<ceiling;i++){
-        localResults[i] = calcProduct(matrix1,matrix2,matrixSize,i);
+        localResults[i-floor] = calcProduct(matrix1,matrix2,matrixSize,i);
     } 
     MPI_Gather(localResults,count,MPI_DOUBLE,resultMatrix,count,MPI_DOUBLE,0,MPI_COMM_WORLD);
     
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
         printf("Here be the results:\n");
         for (int i=0;i<matrixSize;i++){
             for (int j=0;j<matrixSize;j++)
-                printf("%.2f ",resultMatrix[i*matrixSize+j]);
+                printf("%10.2f ",resultMatrix[i*matrixSize+j]);
         printf("\n");
         }
         free(resultMatrix);
