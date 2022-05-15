@@ -6,13 +6,10 @@
 double calcProduct(double* m1,double* m2, int size, int idx){
     int row = idx / size; 
     int col = idx % size;
-    printf("trying calc for %d %d,%d\n",idx,row,col);
     double val = 0;
     for (int i = 0;i<size;i++){
-
         val+= m1[size*row+i] * m2[size*i+col];
     }
-    printf("finished calc for %d %d,%d\n",idx,row,col);
     return val;
 }
 
@@ -25,31 +22,28 @@ int main(int argc, char *argv[])
     double* matrix2;
     double* resultMatrix;
 
-
-    srand((unsigned int)time(NULL));
-
-
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    srand((unsigned int)time(NULL));
+    matrixSize = 8;
+    matrix1 = malloc(sizeof(double) * matrixSize * matrixSize);
+    matrix2 = malloc(sizeof(double) * matrixSize * matrixSize);
+
     if (rank == 0)
     {
-        matrixSize = 8;
-        matrix1 = malloc(sizeof(double) * matrixSize * matrixSize);
-        matrix2 = malloc(sizeof(double) * matrixSize * matrixSize);
         resultMatrix = malloc(sizeof(double) * matrixSize * matrixSize);
-        MPI_Bcast(&matrixSize,1,MPI_INT,0,MPI_COMM_WORLD);
+        
         for (int i = 0;i<matrixSize*matrixSize;i++){
             matrix1[i] = rand()%500;
             matrix2[i] = rand()%500;
         }
+
         MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }else{
         MPI_Bcast(&matrixSize,1,MPI_INT,0,MPI_COMM_WORLD);
-        matrix1 = malloc(sizeof(double) * matrixSize * matrixSize);
-        matrix2 = malloc(sizeof(double) * matrixSize * matrixSize);
         MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }
@@ -64,6 +58,7 @@ int main(int argc, char *argv[])
     } 
     printf("left calc for %d %d\n",floor,ceiling);
     MPI_Gather(localResults,count,MPI_DOUBLE,resultMatrix,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    
     if (rank==0){
         printf("Here be the results:\n");
         for (int i=0;i<matrixSize;i++){
