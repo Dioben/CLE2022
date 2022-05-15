@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
         MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }else{
-        MPI_Bcast(&matrixSize,1,MPI_INT,0,MPI_COMM_WORLD);
         MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }
