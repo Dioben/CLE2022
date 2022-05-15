@@ -39,24 +39,23 @@ int main(int argc, char *argv[])
             matrix1[i] = rand()%500;
             matrix2[i] = rand()%500;
         }
-
-        MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
-        MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    }else{
-        MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
-        MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }
+    //init m1
+    MPI_Bcast(&matrix1,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    //init m2
+    MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
 
     int count = (matrixSize* matrixSize) /size;
     int floor =  count * rank;
     int ceiling =  count * (rank+1);
     double* localResults = malloc(sizeof(double)*count);
-    printf("starting calc for %d %d\n",floor,ceiling);
     for (int i = floor;i<ceiling;i++){
+        printf("%d\n",i);
         localResults[i] = calcProduct(matrix1,matrix2,matrixSize,i);
+        printf("made it past %d\n",i);
     } 
-    printf("left calc for %d %d\n",floor,ceiling);
-    MPI_Gather(localResults,count,MPI_DOUBLE,resultMatrix,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    MPI_Gather(localResults,count,MPI_DOUBLE,resultMatrix,count,MPI_DOUBLE,0,MPI_COMM_WORLD);
     
     if (rank==0){
         printf("Here be the results:\n");
