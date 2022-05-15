@@ -46,14 +46,23 @@ int main(int argc, char *argv[])
     MPI_Bcast(&matrix2,matrixSize*matrixSize,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
 
+
+printf("worker %d matrix1:\n",rank);
+    for (int i = 0; i < matrixSize; i++){
+        for (int j = 0; j < matrixSize; j++)
+            printf("%5.0f  ",matrix1[i*matrixSize + j]);
+        printf("\n");
+        }
+        printf("\n");
+
     int count = (matrixSize* matrixSize) /size;
     int floor =  count * rank;
     int ceiling =  count * (rank+1);
     double* localResults = malloc(sizeof(double)*count);
     for (int i = floor;i<ceiling;i++){
-        printf("%d\n",i);
+        //printf("%d\n",i);
         localResults[i] = calcProduct(matrix1,matrix2,matrixSize,i);
-        printf("made it past %d\n",i);
+        //printf("made it past %d\n",i);
     } 
     MPI_Gather(localResults,count,MPI_DOUBLE,resultMatrix,count,MPI_DOUBLE,0,MPI_COMM_WORLD);
     
