@@ -21,10 +21,10 @@ int main(int argc, char *argv[])
 
     srand((unsigned int)time(NULL));
 
-    data = malloc(sizeof(int) * rcount);
+    
     if (rank == 0)
     {
-
+        data = malloc(sizeof(int) * rcount);
         for (int i = 0; i < rcount; i++)
             data[i] = rand();
 
@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
     MPI_Reduce(recData, maxData, rcount/size, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank==0){
+        free(data);
         printf("reduce round 1\n");
         for (int i = 0; i < rcount/size; i++)
             printf("Worker %d: min %d, max %d\n",i+1,minData[i],maxData[i]);
@@ -67,7 +68,7 @@ int main(int argc, char *argv[])
         printf("max report:%d\n",maxData[0]);
     }
 
-    free(data);
+
     free(recData);
     free(minData);
     free(maxData);
