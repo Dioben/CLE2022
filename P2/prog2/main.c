@@ -10,7 +10,6 @@
  */
 #include <mpi.h>
 #include <stdio.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <libgen.h>
@@ -18,7 +17,7 @@
 #include <time.h>
 
 #include "worker.h"
-#include "sharedRegion.h"
+#include "dispatcher.h"
 
 /**
  * @brief Struct containing the command line argument values.
@@ -57,7 +56,7 @@ static void printUsage(char *cmdName)
  * @param args argument array
  * @return CMDArgs struct with all the argument values
  */
-CMDArgs parseCMD(int argc, char *args[]) //TODO: REMOVE -W param
+CMDArgs parseCMD(int argc, char *args[]) // TODO: REMOVE -W param
 {
     CMDArgs cmdArgs;
     cmdArgs.workerCount = 2;
@@ -142,27 +141,27 @@ CMDArgs parseCMD(int argc, char *args[]) //TODO: REMOVE -W param
 int main(int argc, char **args)
 {
 
-    int rank,size;
+    int rank, size;
 
     MPI_Init(&argc, &args);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-
-    if (size<2){
+    if (size < 2)
+    {
         print("There is a 2 process minimum\n");
         MPI_Finalize();
         exit(EXIT_FAILURE);
     }
 
-
-    if (rank==0){ //dispatcher
-
+    if (rank == 0)
+    { // dispatcher
+        int stop = 0; //TODO: TRY REPLACE WITH EXIT_SUCCESS
         CMDArgs cmdArgs = parseCMD(argc, args);
-        if (cmdArgs.status == EXIT_FAILURE){
-            int stop = 0;
-            for (int i=1;i<size;i++)
-                //signal that there's nothing left to process
+        if (cmdArgs.status == EXIT_FAILURE)
+        {
+            for (int i = 1; i < size; i++)
+                // signal that there's nothing left to process
                 MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
             MPI_Finalize();
             return EXIT_FAILURE;
@@ -170,15 +169,24 @@ int main(int argc, char **args)
         int fileCount = cmdArgs.fileCount;
         char **fileNames = cmdArgs.fileNames;
 
-        struct timespec start, finish; // time measurement
+        struct timespec start, finish;              // time measurement
         clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
-        //for loop
-        //getFIleInfo
-        //dispatchTasksRoundRobin
+        Result *results = malloc(sizeof(Result) * fileCount);
+        
+        int i;
+        int nextDispatch = 1; //keep track of who is targeted next
+        int* dispatchedTotal = malloc(sizeof(int) * size-1); // how many tasks have been sent to a worker
+        for (i = 0; i < fileCount; i++)
+        {
+            dispatchFileTasksRoundRobin(&nextDispatch,dispatchedTotal,&results[i]);
+        }
+        for (int i = 1; i < size; i++)
+            // signal that there's nothing left to process
+            MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+        //TODO: receive info round robin
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-
-        //TODO: POSSIBLY MOVE TO A PRINT RESULTS FUNCTION
-        Result *results = getResults();
+        //printResults();
+        // TODO: POSSIBLY MOVE TO A PRINT RESULTS FUNCTION
         printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
         for (i = 0; i < fileCount; i++)
         {
@@ -189,17 +197,13 @@ int main(int argc, char **args)
         }
         printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
         free(cmdArgs.fileNames);
-       
-    }else{
+        free(results);
+        free(dispatchedTotal);
+    }
+    else
+    {
         workWhileTasksAndReturnResult();
     }
-    
-
-
-
-
-
-
 
     MPI_Finalize();
     exit(EXIT_SUCCESS);
