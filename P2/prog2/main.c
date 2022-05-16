@@ -8,7 +8,7 @@
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
  */
-
+#include <mpi.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -33,7 +33,6 @@ typedef struct CMDArgs
     int status;
     int fileCount;
     char **fileNames;
-    int workerCount;
 } CMDArgs;
 
 /**
@@ -58,7 +57,7 @@ static void printUsage(char *cmdName)
  * @param args argument array
  * @return CMDArgs struct with all the argument values
  */
-CMDArgs parseCMD(int argc, char *args[])
+CMDArgs parseCMD(int argc, char *args[]) //TODO: REMOVE -W param
 {
     CMDArgs cmdArgs;
     cmdArgs.workerCount = 2;
@@ -142,58 +141,66 @@ CMDArgs parseCMD(int argc, char *args[])
  */
 int main(int argc, char **args)
 {
-    struct timespec start, finish; // time measurement
 
-    CMDArgs cmdArgs = parseCMD(argc, args);
-    if (cmdArgs.status == EXIT_FAILURE)
-        return EXIT_FAILURE;
+    int rank,size;
 
-    int fileCount = cmdArgs.fileCount;
-    char **fileNames = cmdArgs.fileNames;
-    int workerCount = cmdArgs.workerCount;
-    int fifoSize = workerCount * 10;
+    MPI_Init(&argc, &args);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
-    initSharedRegion(fileCount, fileNames, fifoSize, workerCount);
-
-    pthread_t workers[workerCount];
-    int i;
-
-    for (i = 0; i < workerCount; i++)
-    {
-        if (pthread_create(&workers[i], NULL, worker, NULL) != 0)
-        {
-            perror("Error on creating worker threads");
-            exit(EXIT_FAILURE);
-        }
+    if (size<2){
+        print("There is a 2 process minimum\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
     }
 
-    for (i = 0; i < workerCount; i++)
-    {
-        if (pthread_join(workers[i], NULL) != 0)
-        {
-            perror("Error on waiting for worker threads");
-            exit(EXIT_FAILURE);
+
+    if (rank==0){ //dispatcher
+
+        CMDArgs cmdArgs = parseCMD(argc, args);
+        if (cmdArgs.status == EXIT_FAILURE){
+            int stop = 0;
+            for (int i=1;i<size;i++)
+                //signal that there's nothing left to process
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            MPI_Finalize();
+            return EXIT_FAILURE;
         }
-    }
+        int fileCount = cmdArgs.fileCount;
+        char **fileNames = cmdArgs.fileNames;
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
+        struct timespec start, finish; // time measurement
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
+        //for loop
+        //getFIleInfo
+        //dispatchTasksRoundRobin
+        clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
 
-    Result *results = getResults();
-    printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
-    for (i = 0; i < fileCount; i++)
-    {
-        for (int j = 0; j < results[i].matrixCount; j++)
+        //TODO: POSSIBLY MOVE TO A PRINT RESULTS FUNCTION
+        Result *results = getResults();
+        printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
+        for (i = 0; i < fileCount; i++)
         {
-            printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
+            for (int j = 0; j < results[i].matrixCount; j++)
+            {
+                printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
+            }
         }
+        printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
+        free(cmdArgs.fileNames);
+       
+    }else{
+        workWhileTasksAndReturnResult();
     }
+    
 
-    freeSharedRegion();
-    free(cmdArgs.fileNames);
 
-    printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
 
+
+
+
+
+    MPI_Finalize();
     exit(EXIT_SUCCESS);
 }

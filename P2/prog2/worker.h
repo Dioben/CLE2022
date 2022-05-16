@@ -1,9 +1,9 @@
 /**
  * @file worker.h (interface file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess determinant calculation
  *
- * Contains implementation of the worker threads.
+ * Contains implementation of the worker process.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -13,12 +13,10 @@
 #define WORKER_H_
 
 /**
- * @brief Worker thread.
+ * @brief Worker process loop.
  *
- * Its role is both to read files to generate tasks and to calculate results from tasks.
- *
- * @return pointer to the identification of this thread
+ * Receives tasks via send and returns results from tasks.
  */
-extern void *worker();
+extern void workWhileTasksAndReturnResult();
 
 #endif
