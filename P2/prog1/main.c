@@ -1,16 +1,14 @@
 /**
  * @file main.c (implementation file)
  *
- * @brief Problem name: multithreaded word count
+ * @brief Problem name: multiprocess word count
  *
- * Generator thread of the worker threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
  */
-
+#include <mpi.h>
 #include <stdio.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <libgen.h>
@@ -18,7 +16,7 @@
 #include <time.h>
 
 #include "worker.h"
-#include "sharedRegion.h"
+#include "dispatcher.h"
 
 /**
  * @brief Struct containing the command line argument values.
@@ -26,14 +24,13 @@
  * "status" - if the file was called correctly.
  * "fileCount" - count of the files given.
  * "fileNames" - array of file names given.
- * "workerCount" - count of the workers to be created.
+
  */
 typedef struct CMDArgs
 {
     int status;
     int fileCount;
     char **fileNames;
-    int workerCount;
 } CMDArgs;
 
 /**
@@ -46,8 +43,7 @@ static void printUsage(char *cmdName)
     fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
                     "  OPTIONS:\n"
                     "  -h      --- print this help\n"
-                    "  -f      --- file names, space separated\n"
-                    "  -w      --- worker thread count (default: 2)\n",
+                    "  -f      --- file names, space separated\n",
             cmdName);
 }
 
@@ -61,7 +57,6 @@ static void printUsage(char *cmdName)
 CMDArgs parseCMD(int argc, char *args[])
 {
     CMDArgs cmdArgs;
-    cmdArgs.workerCount = 2;
     cmdArgs.status = EXIT_FAILURE;
     int opt;
     opterr = 0;
@@ -95,17 +90,6 @@ CMDArgs parseCMD(int argc, char *args[])
             cmdArgs.fileNames = (char **)malloc(sizeof(char **) * filespan);
             memcpy(cmdArgs.fileNames, &args[filestart], (sizeof(char *) * filespan));
             break;
-        case 'w':
-            cmdArgs.workerCount = atoi(optarg);
-            if (cmdArgs.workerCount <= 0)
-            {
-                fprintf(stderr, "%s: non positive worker count\n", basename(args[0]));
-                printUsage(basename(args[0]));
-                if (!(filestart == -1 || filespan == 0))
-                    free(cmdArgs.fileNames);
-                return cmdArgs;
-            }
-            break;
         case 'h': // help
             printUsage(basename(args[0]));
             if (!(filestart == -1 || filespan == 0))
@@ -132,6 +116,21 @@ CMDArgs parseCMD(int argc, char *args[])
 }
 
 /**
+ * @brief Prints program results
+ * 
+ * @param fileNames names of processed files
+ * @param fileCount how many files were processes
+ * @param results result struct array
+ */
+static void printResults(char** fileNames, int fileCount, Result* results){
+    printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");
+    for (i = 0; i < fileCount; i++)
+    {
+        printf("%-30s %15d %21d %21d\n", fileNames[i], results[i].wordCount, results[i].vowelStartCount, results[i].consonantEndCount);
+    }
+}
+
+/**
  * @brief Main thread.
  *
  * Its role is generating the worker threads, waiting for their termination, and printing the end result.
@@ -142,55 +141,65 @@ CMDArgs parseCMD(int argc, char *args[])
  */
 int main(int argc, char **args)
 {
-    struct timespec start, finish; // time measurement
 
-    CMDArgs cmdArgs = parseCMD(argc, args);
-    if (cmdArgs.status == EXIT_FAILURE)
-        return EXIT_FAILURE;
+    int rank, size;
 
-    int fileCount = cmdArgs.fileCount;
-    char **fileNames = cmdArgs.fileNames;
-    int workerCount = cmdArgs.workerCount;
-    int fifoSize = workerCount * 10;
+    MPI_Init(&argc, &args);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
-
-    initSharedRegion(fileCount, fileNames, fifoSize, workerCount);
-
-    pthread_t workers[workerCount];
-    int i;
-
-    for (i = 0; i < workerCount; i++)
+    if (size < 2)
     {
-        if (pthread_create(&workers[i], NULL, worker, NULL) != 0)
+        print("There is a 2 process minimum\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+
+    if (rank == 0)
+    { // dispatcher
+        int stop = 0; //TODO: TRY REPLACE WITH EXIT_SUCCESS
+        CMDArgs cmdArgs = parseCMD(argc, args);
+        if (cmdArgs.status == EXIT_FAILURE)
         {
-            perror("Error on creating worker threads");
-            exit(EXIT_FAILURE);
+            for (int i = 1; i < size; i++)
+                // signal that there's nothing left to process
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            MPI_Finalize();
+            return EXIT_FAILURE;
         }
-    }
+        int fileCount = cmdArgs.fileCount;
+        char **fileNames = cmdArgs.fileNames;
 
-    for (i = 0; i < workerCount; i++)
-    {
-        if (pthread_join(workers[i], NULL) != 0)
+        struct timespec start, finish;              // time measurement
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
+        Result *results = malloc(sizeof(Result) * fileCount);
+        
+        int i;
+        int nextDispatch = 1; //keep track of who is targeted next
+        
+        for (i = 0; i < fileCount; i++)
         {
-            perror("Error on waiting for worker threads");
-            exit(EXIT_FAILURE);
+            //initialize results object, read + dispatch work chunks
+            nextDispatch = dispatchFileTasksRoundRobin(nextDispatch,&results[i]);
         }
+        for (int i = 1; i < size; i++)
+            // signal that there's nothing left to process
+            MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+
+        mergeChunks(size-1,results,fileCount);
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
+        printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
+        printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
+        
+        free(cmdArgs.fileNames);
+        free(results);
     }
-
-    clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-
-    Result *results = getResults();
-    printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");
-    for (i = 0; i < fileCount; i++)
+    else
     {
-        printf("%-30s %15d %21d %21d\n", fileNames[i], results[i].wordCount, results[i].vowelStartCount, results[i].consonantEndCount);
+        whileTasksWorkAndSendResult();
     }
 
-    freeSharedRegion();
-    free(cmdArgs.fileNames);
-
-    printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
-
+    MPI_Finalize();
     exit(EXIT_SUCCESS);
 }

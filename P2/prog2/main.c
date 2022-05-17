@@ -1,9 +1,8 @@
 /**
  * @file main.c (implementation file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess determinant calculation
  *
- * Generator thread of the worker threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -25,7 +24,7 @@
  * "status" - if the file was called correctly.
  * "fileCount" - count of the files given.
  * "fileNames" - array of file names given.
- * "workerCount" - count of the workers to be created.
+
  */
 typedef struct CMDArgs
 {
@@ -44,8 +43,7 @@ static void printUsage(char *cmdName)
     fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
                     "  OPTIONS:\n"
                     "  -h      --- print this help\n"
-                    "  -f      --- file names, space separated\n"
-                    "  -w      --- worker thread count (default: 2)\n",
+                    "  -f      --- file names, space separated\n",
             cmdName);
 }
 
@@ -56,10 +54,9 @@ static void printUsage(char *cmdName)
  * @param args argument array
  * @return CMDArgs struct with all the argument values
  */
-CMDArgs parseCMD(int argc, char *args[]) // TODO: REMOVE -W param
+CMDArgs parseCMD(int argc, char *args[])
 {
     CMDArgs cmdArgs;
-    cmdArgs.workerCount = 2;
     cmdArgs.status = EXIT_FAILURE;
     int opt;
     opterr = 0;
@@ -93,17 +90,6 @@ CMDArgs parseCMD(int argc, char *args[]) // TODO: REMOVE -W param
             cmdArgs.fileNames = (char **)malloc(sizeof(char **) * filespan);
             memcpy(cmdArgs.fileNames, &args[filestart], (sizeof(char *) * filespan));
             break;
-        case 'w':
-            cmdArgs.workerCount = atoi(optarg);
-            if (cmdArgs.workerCount <= 0)
-            {
-                fprintf(stderr, "%s: non positive worker count\n", basename(args[0]));
-                printUsage(basename(args[0]));
-                if (!(filestart == -1 || filespan == 0))
-                    free(cmdArgs.fileNames);
-                return cmdArgs;
-            }
-            break;
         case 'h': // help
             printUsage(basename(args[0]));
             if (!(filestart == -1 || filespan == 0))
@@ -127,6 +113,24 @@ CMDArgs parseCMD(int argc, char *args[]) // TODO: REMOVE -W param
     }
     cmdArgs.status = EXIT_SUCCESS;
     return cmdArgs;
+}
+
+/**
+ * @brief Prints program results
+ * 
+ * @param fileNames names of processed files
+ * @param fileCount how many files were processes
+ * @param results result struct array
+ */
+static void printResults(char** fileNames, int fileCount, Result* results){
+        printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
+        for (int i = 0; i < fileCount; i++)
+        {
+            for (int j = 0; j < results[i].matrixCount; j++)
+            {
+                printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
+            }
+        }
 }
 
 /**
@@ -175,34 +179,28 @@ int main(int argc, char **args)
         
         int i;
         int nextDispatch = 1; //keep track of who is targeted next
-        int* dispatchedTotal = malloc(sizeof(int) * size-1); // how many tasks have been sent to a worker
+        
         for (i = 0; i < fileCount; i++)
         {
-            dispatchFileTasksRoundRobin(&nextDispatch,dispatchedTotal,&results[i]);
+            //initialize results object, read + dispatch work chunks
+            nextDispatch = dispatchFileTasksRoundRobin(nextDispatch,&results[i]);
         }
         for (int i = 1; i < size; i++)
             // signal that there's nothing left to process
             MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-        //TODO: receive info round robin
+
+        mergeChunks(size-1,results,fileCount);
+
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-        //printResults();
-        // TODO: POSSIBLY MOVE TO A PRINT RESULTS FUNCTION
-        printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
-        for (i = 0; i < fileCount; i++)
-        {
-            for (int j = 0; j < results[i].matrixCount; j++)
-            {
-                printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
-            }
-        }
+        printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
         printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
+        
         free(cmdArgs.fileNames);
         free(results);
-        free(dispatchedTotal);
     }
     else
     {
-        workWhileTasksAndReturnResult();
+        whileTasksWorkAndSendResult();
     }
 
     MPI_Finalize();

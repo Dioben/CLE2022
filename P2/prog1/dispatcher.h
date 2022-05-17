@@ -20,8 +20,9 @@
  */
 typedef struct Result
 {
-    int matrixCount;
-    double *determinants;
+    int vowelStartCount;
+    int consonantEndCount;
+    int wordCount;
 } Result;
 
 

@@ -17,6 +17,6 @@
  *
  * Receives tasks via send and returns results from tasks.
  */
-extern void workWhileTasksAndReturnResult();
+extern void whileTasksWorkAndSendResult();
 
 #endif
