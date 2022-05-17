@@ -189,13 +189,18 @@ int main(int argc, char **args)
             // signal that there's nothing left to process
             MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
-        mergeChunks(size-1,results,fileCount);
+        mergeChunks(size,results,fileCount);
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
         printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
         printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
         
         free(cmdArgs.fileNames);
+         for (i = 0; i < fileCount; i++)
+        {   
+            if (results[i].matrixCount>0)
+                free(results[i].determinants);
+        }
         free(results);
     }
     else

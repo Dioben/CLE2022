@@ -186,7 +186,7 @@ int main(int argc, char **args)
             // signal that there's nothing left to process
             MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
-        mergeChunks(size-1,results,fileCount);
+        mergeChunks(size,results,fileCount);
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
         printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);

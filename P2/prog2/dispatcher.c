@@ -18,22 +18,13 @@
 
 #include "dispatcher.h"
 
-/**
- * @brief Reads a matrix from a file stream.
- *
- * @param file file stream
- * @param order order of the matrix
- * @param matrix 1D representation of the matrix to read into
- */
-static void readMatrix(FILE *file, int order, double *matrix)
-{
-    fread(matrix, 8 , order*order, file); //TODO: MAYBE JUST REMOVE THIS
-}
-
 int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result* result){
     FILE *file = fopen(filename, "rb");
-    if (file == NULL)
+    if (file == NULL){
+        (*result).matrixCount = -1;
         return nextDispatch;
+    }
+
     
     // number of matrices in the file
     int count;
@@ -44,22 +35,38 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
     fread(&order, 4, 1, file);
     int matrix[order*order];
 
+    //init result struct
+    (*result).matrixCount = count;
+    (*result).determinants = malloc(sizeof(double) * count);
+
     for (int i=0;i<count;i++){
         //read matrix from file
         fread(matrix, 8 , order*order, file);
+        //send order of next task, task
         MPI_Isend( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD , NULL);
         MPI_Isend( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD , NULL);
-        //advance dispatch number
-        nextDispatch++;
-        if (nextDispatch>size)
-            nextDispatch = 1;
+        
+        //advance dispatch number, wraps back to 1 after size
+        nextDispatch = (nextDispatch%size)+1;
     }
 
 
 return nextDispatch;
 }
 
-void mergeChunks(int workers, Result* results, int resultCount){
+void mergeChunks(int size, Result* results, int resultCount){
+    int nextReceive = 1;
+    //for each file
+    for(int i=0;i<resultCount;i++){
+        Result res = results[i];
+        //for each determinant
+        for (int k=0;i<res.matrixCount;k++){
+            //get determinant
+            MPI_Recv(res.determinants+k,1,MPI_DOUBLE,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            //avance dispatch
+            nextReceive = (nextReceive%size)+1;
+        }
+    }
 
 }
 

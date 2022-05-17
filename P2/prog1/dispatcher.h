@@ -41,10 +41,10 @@ extern int dispatchFileTasksRoundRobin(char* filename, int nextDispatch,int work
 /**
  * @brief Merges task results from workers onto a results array
  *
- * @param workers number of workers
+ * @param size max worker ID
  * @param results results array
  * @param resultCount length of results array
  */
-extern void mergeChunks(int workers, Result* results, int resultCount);
+extern void mergeChunks(int size, Result* results, int resultCount);
 
 #endif
