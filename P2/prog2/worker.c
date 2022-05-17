@@ -1,7 +1,7 @@
 /**
  * @file worker.c (implementation file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess determinant calculation
  *
  * Contains implementation of the worker threads.
  *
@@ -9,6 +9,7 @@
  * @author Diogo Bento, nmec: 93391
  */
 
+#include <mpi.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -73,4 +74,41 @@ static double calculateDeterminant(int order, double *matrix)
         determinant *= matrix[i * order + i];
     }
     return determinant;
+}
+
+void whileTasksWorkAndSendResult()
+{
+    // matrix size, how much memory we've allocated, matrix itself,result of calculus
+    int size;
+    int currentMax = 0;
+    double *matrix;
+    double determinant;
+    
+    while (1)
+    {
+        //receive next task matrix size
+        MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+        //signal to stop working
+        if (size<1)
+            break;
+        //our current matrix buffer isnt large enough
+        if (size>currentMax){
+            //matrix has not been allocated yet
+            if (currentMax == 0){
+                matrix = malloc(sizeof(double) * size*size);
+            }//matrix has been allocated
+            else{
+                matrix = realloc(matrix,size*size);
+            }
+            currentMax = size;
+        }
+        //receive matrix
+        MPI_Recv(matrix,size*size,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        determinant = calculateDeterminant(size,matrix);
+        //send back result
+        MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , NULL);
+    }
+    free(matrix);
+
 }

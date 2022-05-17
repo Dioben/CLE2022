@@ -1,9 +1,9 @@
 /**
- * @file worker.c (implementation file)
+ * @file dispatcher.c (implementation file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess determinant calculation
  *
- * Contains implementation of the worker threads.
+ * Contains implementation of the dispatcher process.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -68,27 +68,4 @@ void mergeChunks(int size, Result* results, int resultCount){
         }
     }
 
-}
-
-/**
- * @brief Uses a file to create tasks.
- *
- * @param fileName name of the file
- */
-static void parseFile(char* fileName)
-{
-    FILE *file = fopen(fileName, "rb");
-    if (file == NULL)
-        return;
-
-    // number of matrices in the file
-    int count;
-    fread(&count, 4, 1, file);
-
-    // order of the matrices in the file
-    int order;
-    fread(&order, 4, 1, file);
-
-    // return count, order, fp
-    //TODO: stfuf
 }
