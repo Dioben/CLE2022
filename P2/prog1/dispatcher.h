@@ -29,12 +29,14 @@ typedef struct Result
 /**
  * @brief Parses a file into chunks, emits them via round robin
  *
+ * @param filename name of file
  * @param nextDispatch index to start dispatch on
+ * @param workerMax highest worker ID
  * @param result has their internal variables set based on file contents
  * 
  * @return next worker in line for task dispatch
  */
-extern int dispatchFileTasksRoundRobin(int nextDispatch, Result* result);
+extern int dispatchFileTasksRoundRobin(char* filename, int nextDispatch,int workerMax, Result* result);
 
 /**
  * @brief Merges task results from workers onto a results array

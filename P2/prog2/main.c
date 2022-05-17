@@ -183,7 +183,7 @@ int main(int argc, char **args)
         for (i = 0; i < fileCount; i++)
         {
             //initialize results object, read + dispatch work chunks
-            nextDispatch = dispatchFileTasksRoundRobin(nextDispatch,&results[i]);
+            nextDispatch = dispatchFileTasksRoundRobin(fileNames[i],nextDispatch,size,&results[i]);
         }
         for (int i = 1; i < size; i++)
             // signal that there's nothing left to process

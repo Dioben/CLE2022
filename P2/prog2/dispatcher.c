@@ -9,12 +9,14 @@
  * @author Diogo Bento, nmec: 93391
  */
 
+#include <mpi.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
+#include "dispatcher.h"
 
 /**
  * @brief Reads a matrix from a file stream.
@@ -28,6 +30,38 @@ static void readMatrix(FILE *file, int order, double *matrix)
     fread(matrix, 8 , order*order, file); //TODO: MAYBE JUST REMOVE THIS
 }
 
+int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result* result){
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL)
+        return nextDispatch;
+    
+    // number of matrices in the file
+    int count;
+    // order of the matrices in the file
+    int order;
+
+    fread(&count, 4, 1, file);
+    fread(&order, 4, 1, file);
+    int matrix[order*order];
+
+    for (int i=0;i<count;i++){
+        //read matrix from file
+        fread(matrix, 8 , order*order, file);
+        MPI_Isend( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD , NULL);
+        MPI_Isend( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD , NULL);
+        //advance dispatch number
+        nextDispatch++;
+        if (nextDispatch>size)
+            nextDispatch = 1;
+    }
+
+
+return nextDispatch;
+}
+
+void mergeChunks(int workers, Result* results, int resultCount){
+
+}
 
 /**
  * @brief Uses a file to create tasks.

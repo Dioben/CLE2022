@@ -124,7 +124,7 @@ CMDArgs parseCMD(int argc, char *args[])
  */
 static void printResults(char** fileNames, int fileCount, Result* results){
     printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");
-    for (i = 0; i < fileCount; i++)
+    for (int i = 0; i < fileCount; i++)
     {
         printf("%-30s %15d %21d %21d\n", fileNames[i], results[i].wordCount, results[i].vowelStartCount, results[i].consonantEndCount);
     }
@@ -180,7 +180,7 @@ int main(int argc, char **args)
         for (i = 0; i < fileCount; i++)
         {
             //initialize results object, read + dispatch work chunks
-            nextDispatch = dispatchFileTasksRoundRobin(nextDispatch,&results[i]);
+            nextDispatch = dispatchFileTasksRoundRobin(fileNames[i],nextDispatch,size,&results[i]);
         }
         for (int i = 1; i < size; i++)
             // signal that there's nothing left to process
