@@ -25,7 +25,7 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
         return nextDispatch;
     }
 
-    
+
     // number of matrices in the file
     int count;
     // order of the matrices in the file
@@ -33,21 +33,28 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
 
     fread(&count, 4, 1, file);
     fread(&order, 4, 1, file);
-    int matrix[order*order];
+    double matrix[order*order];
 
     //init result struct
     (*result).matrixCount = count;
     (*result).determinants = malloc(sizeof(double) * count);
 
+
+    MPI_Request req;
     for (int i=0;i<count;i++){
         //read matrix from file
         fread(matrix, 8 , order*order, file);
         //send order of next task, task
-        MPI_Isend( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD , NULL);
-        MPI_Isend( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD , NULL);
+        MPI_Isend( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD , &req);
+        MPI_Request_free(&req);
+        
+        MPI_Isend( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD , &req);
+        MPI_Request_free(&req);
         
         //advance dispatch number, wraps back to 1 after size
-        nextDispatch = (nextDispatch%size)+1;
+        nextDispatch++;
+        if (nextDispatch>=size)
+            nextDispatch=1;
     }
 
 
@@ -60,11 +67,13 @@ void mergeChunks(int size, Result* results, int resultCount){
     for(int i=0;i<resultCount;i++){
         Result res = results[i];
         //for each determinant
-        for (int k=0;i<res.matrixCount;k++){
+        for (int k=0;k<res.matrixCount;k++){
             //get determinant
             MPI_Recv(res.determinants+k,1,MPI_DOUBLE,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
             //avance dispatch
-            nextReceive = (nextReceive%size)+1;
+            nextReceive++;
+            if(nextReceive>=size)
+                nextReceive=1;
         }
     }
 

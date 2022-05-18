@@ -25,7 +25,7 @@
  * @param matrix 1D representation of the matrix
  * @return determinant of the matrix
  */
-static double calculateDeterminant(int order, double *matrix)
+static double calculateDeterminant(int order, double *matrix) //TODO: something can go wrong here
 {
     // if matrix is small do a simpler calculation
     if (order == 1)
@@ -84,11 +84,11 @@ void whileTasksWorkAndSendResult()
     double *matrix;
     double determinant;
     
+    MPI_Request req;
     while (1)
     {
         //receive next task matrix size
         MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-
         //signal to stop working
         if (size<1)
             break;
@@ -107,9 +107,10 @@ void whileTasksWorkAndSendResult()
         MPI_Recv(matrix,size*size,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         determinant = calculateDeterminant(size,matrix);
         //send back result
-        MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , NULL);
+        MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , &req);
+        MPI_Request_free(&req);
     }
-    
+
     if (currentMax>0)
         free(matrix);
 
