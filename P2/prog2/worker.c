@@ -109,6 +109,8 @@ void whileTasksWorkAndSendResult()
         //send back result
         MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , NULL);
     }
-    free(matrix);
+    
+    if (currentMax>0)
+        free(matrix);
 
 }

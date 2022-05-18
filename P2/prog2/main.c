@@ -40,7 +40,7 @@ typedef struct CMDArgs
  */
 static void printUsage(char *cmdName)
 {
-    fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
+    fprintf(stderr, "\nSynopsis: %s OPTIONS [filenames]\n"
                     "  OPTIONS:\n"
                     "  -h      --- print this help\n"
                     "  -f      --- file names, space separated\n",
@@ -166,7 +166,7 @@ int main(int argc, char **args)
         {
             for (int i = 1; i < size; i++)
                 // signal that there's nothing left to process
-                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
             MPI_Finalize();
             return EXIT_FAILURE;
         }
