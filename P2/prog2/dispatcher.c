@@ -11,10 +11,10 @@
 
 #include <mpi.h>
 #include <stdio.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "dispatcher.h"
 
@@ -40,23 +40,25 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
     (*result).determinants = malloc(sizeof(double) * count);
 
 
-    MPI_Request req;
+    MPI_Request req[size-1];
+    for(int x=0;x<(size-1);x++)
+        req[x] = MPI_REQUEST_NULL;
+    //TODO: POSSIBLY IMPROVE, WITH 50 ISH SMALL FILES AND ONE WORKER THIS MAY RETURN NAN
+
     for (int i=0;i<count;i++){
         //read matrix from file
         fread(matrix, 8 , order*order, file);
+        MPI_Wait(&req[nextDispatch-1], MPI_STATUS_IGNORE);
         //send order of next task, task
-        MPI_Isend( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD , &req);
-        MPI_Request_free(&req);
+        MPI_Isend( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD , &req[nextDispatch-1]);
+        MPI_Request_free(&req[nextDispatch-1]);
         
-        MPI_Isend( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD , &req);
-        MPI_Request_free(&req);
-        
+        MPI_Isend( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD , &req[nextDispatch-1]);
         //advance dispatch number, wraps back to 1 after size
         nextDispatch++;
         if (nextDispatch>=size)
             nextDispatch=1;
     }
-
 
 return nextDispatch;
 }
