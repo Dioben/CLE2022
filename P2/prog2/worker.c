@@ -83,14 +83,20 @@ void whileTasksWorkAndSendResult()
     double *matrix;
     double determinant;
     
-    MPI_Request req;
+    MPI_Request req = MPI_REQUEST_NULL;
     while (1)
     {
         //receive next task matrix size
         MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         //signal to stop working
-        if (size<1)
+        if (size<1){
+            MPI_Wait(&req,MPI_STATUS_IGNORE); //wait for last response to be read before shutdown
             break;
+        }
+
+        //free last request's handler if not in first loop
+        if (req !=MPI_REQUEST_NULL)
+            MPI_Request_free(&req);
         //our current matrix buffer isnt large enough
         if (size>currentMax){
             //matrix has not been allocated yet
@@ -107,7 +113,6 @@ void whileTasksWorkAndSendResult()
         determinant = calculateDeterminant(size,matrix);
         //send back result
         MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , &req);
-        MPI_Request_free(&req);
     }
 
     if (currentMax>0)
