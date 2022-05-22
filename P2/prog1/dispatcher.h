@@ -20,10 +20,23 @@
  */
 typedef struct Result
 {
+    int chunks;
     int vowelStartCount;
     int consonantEndCount;
     int wordCount;
 } Result;
+
+/**
+ * @brief Struct containing the data required for a worker to work on a task.
+ *
+ * "byteCount" - number of bytes read from the file.
+ * "bytes" - array with the bytes read from the file.
+ */
+typedef struct Task
+{
+    int byteCount;
+    char *bytes;
+} Task;
 
 
 /**

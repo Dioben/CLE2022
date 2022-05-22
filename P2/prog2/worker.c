@@ -12,6 +12,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 
@@ -84,7 +85,7 @@ void whileTasksWorkAndSendResult()
     double determinant;
     
     MPI_Request req = MPI_REQUEST_NULL;
-    while (1)
+    while (true)
     {
         //receive next task matrix size
         MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);

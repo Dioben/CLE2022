@@ -40,7 +40,7 @@ typedef struct CMDArgs
  */
 static void printUsage(char *cmdName)
 {
-    fprintf(stderr, "\nSynopsis: %s OPTIONS [filename / positive number]\n"
+    fprintf(stderr, "\nSynopsis: %s OPTIONS [filenames]\n"
                     "  OPTIONS:\n"
                     "  -h      --- print this help\n"
                     "  -f      --- file names, space separated\n",
@@ -178,8 +178,7 @@ int main(int argc, char **args)
         int nextDispatch = 1; //keep track of who is targeted next
         
         for (i = 0; i < fileCount; i++)
-        {
-            //initialize results object, read + dispatch work chunks
+        {   //initialize results object, read + dispatch work chunks
             nextDispatch = dispatchFileTasksRoundRobin(fileNames[i],nextDispatch,size,&results[i]);
         }
         for (int i = 1; i < size; i++)
