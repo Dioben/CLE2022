@@ -150,7 +150,7 @@ int main(int argc, char **args)
 
     if (size < 2)
     {
-        print("There is a 2 process minimum\n");
+        printf("There is a 2 process minimum\n");
         MPI_Finalize();
         exit(EXIT_FAILURE);
     }

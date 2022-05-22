@@ -16,7 +16,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdbool.h>
+
 #include "dispatcher.h"
+#include "utfUtils.h"
 
 /**
  * @brief Reads a chunk from a file stream into a byte array.
@@ -31,6 +33,37 @@ static const int MAX_BYTES_READ = 500;
 /** @brief How many bytes the first text read leaves empty. */
 static const int BYTES_READ_BUFFER = 50;
 
+
+/**
+ * @brief Reads an UTF-8 character from a file stream.
+ *
+ * @param file stream of the file to be read
+ * @return UTF-8 character
+ */
+int readLetterFromFile(FILE *file)
+{
+    int letter = 0;
+    if (fread(&letter, 1, 1, file) != 1)
+        return EOF;
+
+    // how many extra bytes need to be read after the first to get a full character
+    // if -1 initial byte is invalid
+    int loops = -1 + byte0utf8(letter) + 2 * byte1utf8(letter) + 3 * byte2utf8(letter) + 4 * byte3utf8(letter);
+    if (loops < 0)
+    {
+        errno = EINVAL;
+        perror("Invalid text found");
+        return EOF;
+    }
+
+    for (int i = 0; i < loops; i++)
+    {
+        letter <<= 8;
+        fread(&letter, 1, 1, file);
+    }
+
+    return letter;
+}
 
 static Task readBytes(FILE *file)
 {
