@@ -9,6 +9,8 @@
  * @author Diogo Bento, nmec: 93391
  */
 
+#ifndef UTFUTILS_H_
+#define UTFUTILS_H_
 
 /** @brief If byte is a start of an UTF-8 character and implies a 1 byte length character. */
 #define byte0utf8(byte) !(byte >> 7)
@@ -54,3 +56,5 @@ bool isConsonant(int letter);
  * @return if character is a separator
  */
 bool isSeparator(int letter);
+
+#endif

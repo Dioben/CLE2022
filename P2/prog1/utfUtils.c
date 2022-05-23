@@ -10,6 +10,7 @@
  */
 
 #include <stdbool.h>
+#include "utfUtils.h"
 
 /**
  * @brief Returns if UTF-8 character is a bridge character.
