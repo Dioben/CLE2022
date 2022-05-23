@@ -179,6 +179,10 @@ int main(int argc, char **args)
         
         for (i = 0; i < fileCount; i++)
         {   //initialize results object, read + dispatch work chunks
+            results[i].chunks = 0;
+            results[i].consonantEndCount = 0;
+            results[i].vowelStartCount = 0;
+            results[i].wordCount = 0;
             nextDispatch = dispatchFileTasksRoundRobin(fileNames[i],nextDispatch,size,&results[i]);
         }
         for (int i = 1; i < size; i++)
