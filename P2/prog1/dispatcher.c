@@ -153,7 +153,7 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
          (*result).chunks++;
         //send size of next chunk, chunk
         MPI_Send(&(task.byteCount) , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);    
-        MPI_Send(task.bytes, size , MPI_CHAR , nextDispatch , 0 , MPI_COMM_WORLD);
+        MPI_Send(task.bytes, task.byteCount , MPI_CHAR , nextDispatch , 0 , MPI_COMM_WORLD);
         free(task.bytes);
         //advance dispatch number, wraps back to 1 after size
         nextDispatch++;
