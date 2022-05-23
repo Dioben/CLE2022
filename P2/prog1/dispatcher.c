@@ -148,8 +148,10 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
          //get chunk
         task = readBytes(file);
         //exit if no chunk
-        if (task.byteCount<=0)
+        if (task.byteCount == 0) {
+            free(task.bytes);
             break;
+        }
          (*result).chunks++;
         //send size of next chunk, chunk
         MPI_Send(&(task.byteCount) , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);    

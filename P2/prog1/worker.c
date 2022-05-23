@@ -79,7 +79,7 @@ static Result parseTask(int byteCount, char* bytes)
             nextLetter = readLetterFromBytes(&bytesRead, bytes);
         }
 
-        if (nextLetter == EOF)
+        if (nextLetter == EOF || bytesRead >= byteCount)
             break;
 
         result.wordCount++;
