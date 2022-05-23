@@ -169,21 +169,20 @@ void mergeChunks(int size, Result* results, int resultCount){
     int read; //move data here
     //for each file
     for(int i=0;i<resultCount;i++){
-        Result res = results[i];
+
         //for each determinant
-        for (int k=0;k<res.chunks;k++){
+        for (int k=0;k<results[i].chunks;k++){
             //get wc,start vowel, end consonant
             MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            res.wordCount+=read;
+            results[i].wordCount+=read;
             MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            res.vowelStartCount+=read;
+            results[i].vowelStartCount+=read;
             MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            res.consonantEndCount+=read;
+            results[i].consonantEndCount+=read;
             //avance dispatch
             nextReceive++;
             if(nextReceive>=size)
                 nextReceive=1;
         }
     }
-
 }
