@@ -73,6 +73,9 @@ static Result parseTask(int byteCount, char* bytes)
         int nextLetter = readLetterFromBytes(&bytesRead, bytes);
         int letter;
 
+        if (nextLetter == EOF || bytesRead >= byteCount)
+            break;
+
         // while not part of a word, read next character
         while (isSeparator(nextLetter) || isBridge(nextLetter))
         {
