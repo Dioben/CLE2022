@@ -89,6 +89,7 @@ void whileTasksWorkAndSendResult()
     {
         //receive next task matrix size
         MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        printf("worker task size is %d\n",size);
         //signal to stop working
         if (size<1){
             MPI_Wait(&req,MPI_STATUS_IGNORE); //wait for last response to be read before shutdown

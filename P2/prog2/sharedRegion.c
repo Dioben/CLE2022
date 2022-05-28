@@ -244,21 +244,22 @@ void pushTaskToSender(int worker,Task task){
 /**
  * @brief Get a task for a given worker
  * 
- * @param worker worker rank
+ * @param worker worker rank minus 1
  * @return Task* a task meant for the worker
  */
 bool getTask(int worker, Task *task){
     bool val = true;
-    worker--; // turns [1,groupSize] to [0,groupSize-1]
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on putTask() lock");
-
     // if not empty
     if (!(ii[worker] == ri[worker] && !full[worker]))
     {
-        task = &taskFIFO[worker][ri[worker]];
+        (*task).order = taskFIFO[worker][ri[worker]].order;
+         (*task).matrix = taskFIFO[worker][ri[worker]].matrix;
+
+
         ri[worker] = (ri[worker] + 1) % fifoSize;
         full[worker] = false;
 
@@ -284,7 +285,6 @@ void awaitFurtherInfo()
 {
     bool isEmpty = true;
     int status;
-
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
             throwThreadError(status, "Error on awaitFurtherInfo() general lock");
 

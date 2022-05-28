@@ -47,6 +47,7 @@ void * dispatchFileTasksIntoSender(){
             Task task = {.order = order, .matrix = malloc(sizeof(double)*order*order)};
             fread(task.matrix, 8 , order*order, file);
             pushTaskToSender(nextDispatch,task);
+            printf("pushed task %d\n",i);
             //advance dispatch number, wraps back to 1 after size
             nextDispatch++;
             if (nextDispatch>=groupSize)
@@ -59,6 +60,7 @@ void * dispatchFileTasksIntoSender(){
     Task stop = {.order = -1, .matrix = NULL};
     for(int i=1;i<groupSize;i++)
         pushTaskToSender(i,stop);
+    printf("pushed final stop\n");
    
     
     pthread_exit((int *)EXIT_SUCCESS);
@@ -75,16 +77,19 @@ void* emitTasksToWorkers(){
     for (int i=0;i<groupSize-1;i++){
         requests[i] = MPI_REQUEST_NULL;
         tasks[i].order = 0;
+        working[i] = true;
     }
 
     int killSignal = 0;
+    
+    //only ever used to receive waitAny result
+    int lastFinish;
 
     int testStatus;
     while (true){
         
         for (int i=0;i<groupSize-1;i++){
             
-
             MPI_Test(requests+i,&testStatus,MPI_STATUS_IGNORE);
             if(working[i] && testStatus){
                 //worker is ready
@@ -92,18 +97,22 @@ void* emitTasksToWorkers(){
                 if (tasks[i].order>=0)
                     free(tasks[i].matrix);
                 //try to get a new task
-                if (!getTask(i,tasks+i))
+                if (!getTask(i,tasks+i)){
                     tasks[i].order = 0; //avoid free in future loops
+                }
+
                 else{
                     //is a kill request
+                    printf("order:%d\n",tasks[i].order);
                     if (tasks[i].order == -1){
+                        printf("was a KILL\n");
                         currentlyWorking--;
                         MPI_Isend(&killSignal,1,MPI_INT,i+1,0,MPI_COMM_WORLD,requests+i);
                         working[i] =false;
                         continue;
                     }
                     //send this request
-                    MPI_Isend( &tasks[i].order , 1 , MPI_INT , i , 0 , MPI_COMM_WORLD,requests+i);
+                    MPI_Isend( &tasks[i].order , 1 , MPI_INT , i+1, 0 , MPI_COMM_WORLD,requests+i);
                     MPI_Request_free(requests+i);
                     MPI_Isend( tasks[i].matrix , tasks[i].order*tasks[i].order , MPI_DOUBLE , i+1 , 0 , MPI_COMM_WORLD,requests+i);
                 }
@@ -113,8 +122,9 @@ void* emitTasksToWorkers(){
     }
     if (currentlyWorking>0){
         //wait for any chunks to be available, a worker to be available
+        printf("waiting for more\n");
         awaitFurtherInfo();
-        MPI_Waitany(groupSize-1,requests,NULL,MPI_STATUS_IGNORE);
+        MPI_Waitany(groupSize-1,requests,&lastFinish,MPI_STATUS_IGNORE);
     }
 
     else
@@ -122,6 +132,7 @@ void* emitTasksToWorkers(){
     //wait for all the kill messages to have been sent
 
     }
+    printf("the loop is dead\n");
     
     for (int i = 1; i < groupSize; i++)
         // signal that there's nothing left for workers to process
