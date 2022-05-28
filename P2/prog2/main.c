@@ -186,13 +186,30 @@ int main(int argc, char **args)
         struct timespec start, finish;              // time measurement
         clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
-        initSharedRegion(fileCount, fileNames,size);
+        initSharedRegion(fileCount, fileNames,size,10);
         
-        //create dispatcher thread
-        pthread_t dispatcher;
-        if (pthread_create(&dispatcher, NULL, dispatchFileTasksRoundRobin, NULL) != 0)
+        //create reader thread
+        pthread_t reader;
+        if (pthread_create(&reader, NULL, dispatchFileTasksIntoSender, NULL) != 0)
             {
             perror("Error on creating dispatcher");
+
+            int stop = 0;
+            for (int i = 1; i < size; i++)
+                // signal that there's nothing left to process
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
+
+            free(cmdArgs.fileNames);
+            freeSharedRegion();
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+
+         //create dispatcher thread
+        pthread_t sender;
+        if (pthread_create(&sender, NULL, emitTasksToWorkers, NULL) != 0)
+            {
+            perror("Error on creating sender");
 
             int stop = 0;
             for (int i = 1; i < size; i++)
