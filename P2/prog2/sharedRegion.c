@@ -289,6 +289,8 @@ void awaitFurtherInfo()
         if (!(ii[i] == ri[i] && !full[i]))
         {
             isEmpty = false;
+            if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
+                throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
             break;
         }
 
