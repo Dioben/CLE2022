@@ -13,37 +13,17 @@
 #define DISPATCHER_H_
 
 /**
- * @brief Struct containing the results calculated from a file.
- *
- * "matrixCount" - number of matrices in the file.
- * "determinants" - array with the determinant of all matrices.
- */
-typedef struct Result
-{
-    int matrixCount;
-    double *determinants;
-} Result;
-
-
-/**
  * @brief Parses a file into chunks, emits them via round robin
  *
- * @param filename name of file to parse
- * @param nextDispatch index to start dispatch on
- * @param workerMax highest worker ID
- * @param result has their internal variables set based on file contents
  * 
  * @return next worker in line for task dispatch
  */
-extern int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int workerMax, Result* result);
+extern void* dispatchFileTasksRoundRobin();
 
 /**
  * @brief Merges task results from workers onto a results array
  *
- * @param size max worker ID
- * @param results results array
- * @param resultCount length of results array
  */
-extern void mergeChunks(int size, Result* results, int resultCount);
+extern void* mergeChunks();
 
 #endif

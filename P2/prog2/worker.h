@@ -3,7 +3,6 @@
  *
  * @brief Problem name: multiprocess determinant calculation
  *
- * Contains implementation of the worker process.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
