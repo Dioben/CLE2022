@@ -153,3 +153,23 @@ Result *getResults()
     return val;
 }
 
+/**
+ * @brief Pushes a chunk to a given worker's queue
+ * 
+ * @param worker rank of worker chunk is meant for
+ * @param task task that worker must perform
+ */
+void pushTaskToSender(int worker,Task task){
+    //TODO: func
+}
+
+/**
+ * @brief Get a task for a given worker
+ * 
+ * @param worker worker rank
+ * @return Task* a task meant for the worker
+ */
+extern Task* getTask(int worker){
+    //TODO: func
+}
+

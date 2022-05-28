@@ -37,19 +37,15 @@ void * dispatchFileTasksRoundRobin(){
 
         fread(&count, 4, 1, file);
         fread(&order, 4, 1, file);
-        double matrix[order*order];
 
         //init result struct
         initResult(count);
 
         for (int i=0;i<count;i++){
             //read matrix from file
-            fread(matrix, 8 , order*order, file);
-
-            //send order of next task, task
-            MPI_Send( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);
-            
-            MPI_Send( matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD);
+            Task task = {.order = order, .matrix = malloc(sizeof(double)*order*order)};
+            fread(task.matrix, 8 , order*order, file);
+            pushTaskToSender(nextDispatch,task);
             //advance dispatch number, wraps back to 1 after size
             nextDispatch++;
             if (nextDispatch>=groupSize)
@@ -57,12 +53,20 @@ void * dispatchFileTasksRoundRobin(){
         }
 
     }
+   
+    
+    pthread_exit((int *)EXIT_SUCCESS);
+}
+
+void* emitTasksToWorkers(){
     int stop = 0;
+    //send order of next task, task
+    //MPI_Send( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);
+            
+    //MPI_Send( task.matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD);
     for (int i = 1; i < groupSize; i++)
         // signal that there's nothing left for workers to process
         MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-    
-    pthread_exit((int *)EXIT_SUCCESS);
 }
 
 void * mergeChunks(){

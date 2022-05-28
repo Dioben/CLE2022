@@ -26,6 +26,12 @@ typedef struct Result
     double *determinants;
 } Result;
 
+typedef struct Task
+{
+   int order;
+   double *matrix;
+}Task;
+
 /** @brief Number of files to be processed. */
 extern int totalFileCount;
 
@@ -76,5 +82,21 @@ extern Result *getResults();
  * @param determinant determinant of the matrix
  */
 extern Result* getResultToUpdate(int idx);
+
+/**
+ * @brief Pushes a chunk to a given worker's queue
+ * 
+ * @param worker rank of worker chunk is meant for
+ * @param task task that worker must perform
+ */
+extern void pushTaskToSender(int worker,Task task);
+
+/**
+ * @brief Get a task for a given worker
+ * 
+ * @param worker worker rank
+ * @return Task* a task meant for the worker
+ */
+extern Task* getTask(int worker);
 
 #endif

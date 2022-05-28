@@ -13,12 +13,16 @@
 #define DISPATCHER_H_
 
 /**
- * @brief Parses a file into chunks, emits them via round robin
+ * @brief Parses a file into chunks, emits them towards the publisher
  *
- * 
- * @return next worker in line for task dispatch
  */
-extern void* dispatchFileTasksRoundRobin();
+extern void* dispatchFileTasksIntoSender();
+
+/**
+ * @brief Takes file chunks and sends them to workers
+ *
+ */
+extern void* emitTasksToWorkers();
 
 /**
  * @brief Merges task results from workers onto a results array
