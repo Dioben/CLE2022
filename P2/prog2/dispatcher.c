@@ -27,6 +27,7 @@ void * dispatchFileTasksRoundRobin(){
         FILE *file = fopen(filename, "rb");
         if (file == NULL){
             initResult(0);
+            continue;
         }
 
 
