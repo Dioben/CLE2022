@@ -32,9 +32,6 @@ static int initializedResults;
 /** @brief Array of the results for each file. */
 static Result *results;
 
-/** @brief Max number of items the task FIFO can contain. */
-static int fifoSize;
-
 /** @brief Synchronization point when a new result object is initialized. */
 static pthread_cond_t resultInitialized;
 
