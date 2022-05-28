@@ -32,11 +32,32 @@ static int initializedResults;
 /** @brief Array of the results for each file. */
 static Result *results;
 
+/** @brief Max number of items the task FIFOs can contain. */
+static int fifoSize;
+
+/** @brief FIFOs with all the queued tasks. 1 per worker. */
+static Task **taskFIFO;
+
+/** @brief Insertion pointer to the task FIFO. */
+static int *ii;
+
+/** @brief Retrieval pointer to the task FIFO. */
+static int *ri;
+
+/** @brief Flag signaling the task FIFO is full. */
+static bool *full;
+
 /** @brief Synchronization point when a new result object is initialized. */
 static pthread_cond_t resultInitialized;
 
 /** @brief Locking flag which warrants mutual exclusion while accessing the results array. */
 static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
+
+/** @brief Locking flag which warrants mutual exclusion while accessing the task FIFO. */
+static pthread_mutex_t *fifoAccess;
+
+/** @brief Synchronization point when the task FIFO is full. */
+static pthread_cond_t *fifoFull;
 
 /**
  * @brief Throws error and stops thread that threw.
@@ -59,16 +80,31 @@ static void throwThreadError(int error, char *string)
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
  */
-void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int size)
+void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int size, int _fifoSize)
 {
     totalFileCount = _totalFileCount;
     files = _files;
+    fifoSize = _fifoSize;
     results = malloc(sizeof(Result) * totalFileCount);
 
     initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
     groupSize = size;
     
+    ii = malloc(sizeof(int) * (groupSize-1));
+    ri = malloc(sizeof(int) * (groupSize-1));
+    full = malloc(sizeof(bool) * (groupSize-1));
+    fifoAccess = malloc(sizeof(pthread_mutex_t) * (groupSize-1));
+    fifoFull = malloc(sizeof(pthread_cond_t) * (groupSize-1));
+    taskFIFO = malloc(sizeof(Task*) * (groupSize-1));
+    for (int i = 0; i < (groupSize-1); i++) {
+        ii[i] = 0;
+        ri[i] = 0;
+        full[i] = false;
+        pthread_mutex_init(&fifoAccess[i], NULL);
+        pthread_cond_init(&fifoFull[i], NULL);
+        taskFIFO[i] = malloc(sizeof(Task) * fifoSize);
+    }
 }
 
 /**
@@ -160,7 +196,22 @@ Result *getResults()
  * @param task task that worker must perform
  */
 void pushTaskToSender(int worker,Task task){
-    //TODO: func
+    worker--; // turns [1,groupSize] to [0,groupSize-1]
+    int status;
+
+    if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
+        throwThreadError(status, "Error on putTask() lock");
+
+    while (full[worker])
+        if ((status = pthread_cond_wait(&fifoFull[worker], &fifoAccess[worker])) != 0)
+                throwThreadError(status, "Error on getTask() fifoEmpty wait");
+    
+    taskFIFO[worker][ii[worker]] = task;
+    ii[worker] = (ii[worker] + 1) % fifoSize;
+    full[worker] = (ii[worker] == ri[worker]);
+
+    if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
+        throwThreadError(status, "Error on putTask() unlock");
 }
 
 /**
@@ -169,7 +220,32 @@ void pushTaskToSender(int worker,Task task){
  * @param worker worker rank
  * @return Task* a task meant for the worker
  */
-extern Task* getTask(int worker){
-    //TODO: func
+bool getTask(int worker, Task *task){
+    bool val = true;
+    worker--; // turns [1,groupSize] to [0,groupSize-1]
+    int status;
+
+    if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
+        throwThreadError(status, "Error on putTask() lock");
+
+    // if not empty
+    if (!(ii[worker] == ri[worker] && !full[worker]))
+    {
+        task = &taskFIFO[ri[worker]];
+        ri[worker] = (ri[worker] + 1) % fifoSize;
+        full[worker] = false;
+
+        if ((status = pthread_cond_signal(&fifoFull[worker])) != 0)
+            throwThreadError(status, "Error on putTask() fifoEmpty signal");
+    }
+    else
+    {
+        val = false;
+    }
+
+    if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
+        throwThreadError(status, "Error on putTask() unlock");
+    
+    return val;
 }
 
