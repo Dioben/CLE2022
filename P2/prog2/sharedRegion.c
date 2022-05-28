@@ -24,7 +24,7 @@ int totalFileCount;
 char **files;
 
 /** @brief Number of workers. */
-static int workers;
+int workers;
 
 /** @brief Index of last initialized results object. */
 static int initializedResults;

@@ -32,6 +32,8 @@ extern int totalFileCount;
 /** @brief Array with the file names of all files. */
 extern char **files;
 
+/** @brief Number of workers. */
+extern int workers;
 /**
  * @brief Initializes the shared region.
  *
