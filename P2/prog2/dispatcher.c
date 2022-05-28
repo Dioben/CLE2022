@@ -19,7 +19,7 @@
 #include "dispatcher.h"
 #include "sharedRegion.h"
 
-void dispatchFileTasksRoundRobin(){
+void * dispatchFileTasksRoundRobin(){
     int nextDispatch = 1;
     for (int fIdx=0;fIdx<totalFileCount;fIdx++){
         char * filename = files[fIdx];
@@ -41,7 +41,7 @@ void dispatchFileTasksRoundRobin(){
 
         //init result struct
         initResult(count);
-        
+
         for (int i=0;i<count;i++){
             //read matrix from file
             fread(matrix, 8 , order*order, file);
@@ -56,11 +56,15 @@ void dispatchFileTasksRoundRobin(){
                 nextDispatch=1;
         }
 
-        }
+    }
+    int stop = 0;
+    for (int i = 1; i < groupSize; i++)
+        // signal that there's nothing left for workers to process
+        MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
     
 }
 
-void mergeChunks(){
+void * mergeChunks(){
     int nextReceive = 1;
     //for each file
     for(int i=0;i<totalFileCount;i++){

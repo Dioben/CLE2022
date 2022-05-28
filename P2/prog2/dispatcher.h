@@ -31,12 +31,12 @@ typedef struct Result
  * 
  * @return next worker in line for task dispatch
  */
-extern void dispatchFileTasksRoundRobin();
+extern void* dispatchFileTasksRoundRobin();
 
 /**
  * @brief Merges task results from workers onto a results array
  *
  */
-extern void mergeChunks();
+extern void* mergeChunks();
 
 #endif
