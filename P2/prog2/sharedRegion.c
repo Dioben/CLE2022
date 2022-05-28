@@ -56,8 +56,14 @@ static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 /** @brief Locking flag which warrants mutual exclusion while accessing the task FIFO. */
 static pthread_mutex_t *fifoAccess;
 
+/** @brief Locking flag to allow wait in awaitCurrentInfo. */
+static pthread_mutex_t awaitAccess = PTHREAD_MUTEX_INITIALIZER;
+
 /** @brief Synchronization point when the task FIFO is full. */
 static pthread_cond_t *fifoFull;
+
+/** @brief Synchronization point when the task FIFO is empty. */
+static pthread_cond_t fifoEmpty;
 
 /**
  * @brief Throws error and stops thread that threw.
@@ -90,6 +96,7 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
     initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
     groupSize = size;
+    pthread_cond_init(&fifoEmpty, NULL);
     
     ii = malloc(sizeof(int) * (groupSize-1));
     ri = malloc(sizeof(int) * (groupSize-1));
@@ -210,6 +217,9 @@ void pushTaskToSender(int worker,Task task){
     ii[worker] = (ii[worker] + 1) % fifoSize;
     full[worker] = (ii[worker] == ri[worker]);
 
+    if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
+        throwThreadError(status, "Error on putTask() fifoEmpty signal");
+
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on putTask() unlock");
 }
@@ -249,3 +259,28 @@ bool getTask(int worker, Task *task){
     return val;
 }
 
+void awaitCurrentInfo()
+{
+    bool isEmpty = true;
+    for (int i = 0; i < groupSize-1; i++)
+    {
+        // if not empty
+        if (!(ii[i] == ri[i] && !full[i]))
+        {
+            isEmpty = false;
+            break;
+        }
+    }
+    if (isEmpty)
+    {
+        int status;
+        if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
+            throwThreadError(status, "Error on putTask() lock");
+
+        if ((status = pthread_cond_wait(&fifoEmpty, &awaitAccess)) != 0)
+            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+
+        if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
+            throwThreadError(status, "Error on getResults() unlock");
+    }
+}
