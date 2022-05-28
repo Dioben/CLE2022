@@ -23,8 +23,8 @@ int totalFileCount;
 /** @brief Array with the file names of all files. */
 char **files;
 
-/** @brief Number of workers. */
-int workers;
+/** @brief Total process count. */
+int groupSize;
 
 /** @brief Index of last initialized results object. */
 static int initializedResults;
@@ -67,7 +67,7 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
 
     initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
-    workers = size-1;
+    groupSize = size;
     
 }
 
@@ -79,7 +79,8 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
 void freeSharedRegion()
 {
     for (int i = 0; i < totalFileCount; i++)
-        free(results[i].determinants);
+        if (results[i].matrixCount>=0)
+            free(results[i].determinants);
     free(results);
 }
 
@@ -97,7 +98,8 @@ void initResult(int matrixCount)
         throwThreadError(status, "Error on initResult() lock");
 
     results[++initializedResults].matrixCount = matrixCount;
-    results[initializedResults].determinants = malloc(sizeof(double) * matrixCount);
+    if (matrixCount>=0)
+        results[initializedResults].determinants = malloc(sizeof(double) * matrixCount);
 
     if ((status = pthread_cond_signal(&resultInitialized)) != 0)
         throwThreadError(status, "Error on initResult() new result signal");
@@ -115,7 +117,7 @@ void initResult(int matrixCount)
  */
 Result* getResultToUpdate(int idx)
 {
-    int status;
+    int status;//TODO: WHAT IF IDX TOO BIG
 
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() lock");
