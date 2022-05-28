@@ -129,6 +129,11 @@ void freeSharedRegion()
         free(taskFIFO[i]);
     }
     free(taskFIFO);
+    free(ii);
+    free(ri);
+    free(full);
+    free(fifoAccess);
+    free(fifoFull);
 }
 
 /**
