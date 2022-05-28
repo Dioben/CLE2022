@@ -52,18 +52,53 @@ void * dispatchFileTasksRoundRobin(){
                 nextDispatch=1;
         }
 
+
     }
+    //send signal to stop workers
+    Task stop = {.order = -1, .matrix = NULL};
+    for(int i=1;i<groupSize;i++)
+        pushTaskToSender(i,stop);
    
     
     pthread_exit((int *)EXIT_SUCCESS);
 }
 
 void* emitTasksToWorkers(){
-    int stop = 0;
-    //send order of next task, task
+    //curently employed entities
+    bool working[groupSize-1];
+    int currentlyWorking = groupSize-1;
+
+    //request handler objects
+    int requests[groupSize-1];
+    for (int i=0;i<groupSize-1;i++){
+        requests[i] = MPI_REQUEST_NULL;
+    }
+    int testStatus;
+    while (currentlyWorking>0){
+        
+        for (int i=0;i<groupSize-1;i++){
+            
+            MPI_Test(requests[i],&testStatus,MPI_STATUS_IGNORE);
+            if(working[i] && testStatus){
+                //worker is ready
+                //free() previous object
+                //getTask (non blocking if empty)
+                //if bad request set this thing to not working and send out a 0 to kill worker, decreaseCurrentlyWorking
+                //set up sending this one
+            }
+            //if none of the previous ifs did anything check a smem method here
+            // that method returns if updates have been posted since last call or blocks for a signal on next update
+    }
+    //wait for all the kill messages to have been sent
+
+    }
+
+    Task task = getTask()
     //MPI_Send( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);
             
     //MPI_Send( task.matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD);
+    int stop = 0;
+    
     for (int i = 1; i < groupSize; i++)
         // signal that there's nothing left for workers to process
         MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
