@@ -104,7 +104,7 @@ void initResult(int matrixCount)
     if ((status = pthread_cond_signal(&resultInitialized)) != 0)
         throwThreadError(status, "Error on initResult() new result signal");
 
-    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on initResult() lock");
 }
 
