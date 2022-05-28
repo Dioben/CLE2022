@@ -104,5 +104,5 @@ extern bool getTask(int worker, Task *task);
  * @brief Block until there is pending data
  * 
  */
-extern void awaitFurtherInfo()
+extern void awaitFurtherInfo();
 #endif
