@@ -111,28 +111,20 @@ void* emitTasksToWorkers(){
             }
            
     }
-     //at this point we must figure out a way to wait without wasting resources
-    // awaitFurtherInfo reasonably should be able to check for new chunks still it was last called
-    //issues: we have accounted for chunks that we could not send due to busy worker
-    // ok i wasnt thinking about this from the smem manager's perspective
-    //you can reasonably check if each fifo is empty inside mutex and wait for signal if empty
     if (currentlyWorking>0)
+    //wait for any chunks to be available
         awaitFurtherInfo();
     else
         break;
     //wait for all the kill messages to have been sent
 
     }
-
-    Task task = getTask()
-    //MPI_Send( &order , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);
-            
-    //MPI_Send( task.matrix , order*order , MPI_DOUBLE , nextDispatch , 0 , MPI_COMM_WORLD);
-    int stop = 0;
     
     for (int i = 1; i < groupSize; i++)
         // signal that there's nothing left for workers to process
-        MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+        MPI_Wait(&requests[i], MPI_STATUS_IGNORE);
+    
+    pthread_exit((int *)EXIT_SUCCESS);
 }
 
 void * mergeChunks(){
