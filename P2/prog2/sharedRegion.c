@@ -56,8 +56,8 @@ static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 /** @brief Locking flag which warrants mutual exclusion while accessing the task FIFO. */
 static pthread_mutex_t *fifoAccess;
 
-/** @brief Synchronization point when the task FIFO is empty. */
-static pthread_cond_t *fifoEmpty;
+/** @brief Synchronization point when the task FIFO is full. */
+static pthread_cond_t *fifoFull;
 
 /**
  * @brief Throws error and stops thread that threw.
@@ -89,20 +89,20 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
 
     initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
-    groupSize = size - 1;
+    groupSize = size;
     
-    ii = malloc(sizeof(int) * groupSize);
-    ri = malloc(sizeof(int) * groupSize);
-    full = malloc(sizeof(bool) * groupSize);
-    fifoAccess = malloc(sizeof(pthread_mutex_t) * groupSize);
-    fifoEmpty = malloc(sizeof(pthread_cond_t) * groupSize);
-    taskFIFO = malloc(sizeof(Task*) * groupSize);
-    for (int i = 0; i < groupSize; i++) {
+    ii = malloc(sizeof(int) * (groupSize-1));
+    ri = malloc(sizeof(int) * (groupSize-1));
+    full = malloc(sizeof(bool) * (groupSize-1));
+    fifoAccess = malloc(sizeof(pthread_mutex_t) * (groupSize-1));
+    fifoFull = malloc(sizeof(pthread_cond_t) * (groupSize-1));
+    taskFIFO = malloc(sizeof(Task*) * (groupSize-1));
+    for (int i = 0; i < (groupSize-1); i++) {
         ii[i] = 0;
         ri[i] = 0;
         full[i] = false;
         pthread_mutex_init(&fifoAccess[i], NULL);
-        pthread_cond_init(&fifoEmpty[i], NULL);
+        pthread_cond_init(&fifoFull[i], NULL);
         taskFIFO[i] = malloc(sizeof(Task) * fifoSize);
     }
 }
@@ -203,7 +203,7 @@ void pushTaskToSender(int worker,Task task){
         throwThreadError(status, "Error on putTask() lock");
 
     while (full[worker])
-        if ((status = pthread_cond_wait(&fifoEmpty[worker], &fifoAccess[worker])) != 0)
+        if ((status = pthread_cond_wait(&fifoFull[worker], &fifoAccess[worker])) != 0)
                 throwThreadError(status, "Error on getTask() fifoEmpty wait");
     
     taskFIFO[worker][ii[worker]] = task;
@@ -220,7 +220,7 @@ void pushTaskToSender(int worker,Task task){
  * @param worker worker rank
  * @return Task* a task meant for the worker
  */
-extern bool getTask(int worker, Task *task){
+bool getTask(int worker, Task *task){
     bool val = true;
     worker--; // turns [1,groupSize] to [0,groupSize-1]
     int status;
@@ -234,6 +234,9 @@ extern bool getTask(int worker, Task *task){
         task = &taskFIFO[ri[worker]];
         ri[worker] = (ri[worker] + 1) % fifoSize;
         full[worker] = false;
+
+        if ((status = pthread_cond_signal(&fifoFull[worker])) != 0)
+            throwThreadError(status, "Error on putTask() fifoEmpty signal");
     }
     else
     {
