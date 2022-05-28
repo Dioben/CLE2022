@@ -100,4 +100,9 @@ extern void pushTaskToSender(int worker,Task task);
  */
 extern bool getTask(int worker, Task *task);
 
+/**
+ * @brief Block until there is pending data
+ * 
+ */
+extern void awaitFurtherInfo()
 #endif

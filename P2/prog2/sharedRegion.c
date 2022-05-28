@@ -56,8 +56,14 @@ static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 /** @brief Locking flag which warrants mutual exclusion while accessing the task FIFO. */
 static pthread_mutex_t *fifoAccess;
 
+/** @brief Locking flag to allow wait in awaitFurtherInfo. */
+static pthread_mutex_t awaitAccess = PTHREAD_MUTEX_INITIALIZER;
+
 /** @brief Synchronization point when the task FIFO is full. */
 static pthread_cond_t *fifoFull;
+
+/** @brief Synchronization point when the task FIFO is empty. */
+static pthread_cond_t fifoEmpty;
 
 /**
  * @brief Throws error and stops thread that threw.
@@ -90,6 +96,7 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
     initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
     groupSize = size;
+    pthread_cond_init(&fifoEmpty, NULL);
     
     ii = malloc(sizeof(int) * (groupSize-1));
     ri = malloc(sizeof(int) * (groupSize-1));
@@ -212,6 +219,17 @@ void pushTaskToSender(int worker,Task task){
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on putTask() unlock");
+
+
+    //notify that there's new content
+    if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
+            throwThreadError(status, "Error on pushTaskToSender() notification lock");
+
+    if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
+        throwThreadError(status, "Error on putTask() fifoEmpty signal");
+
+    if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
+        throwThreadError(status, "Error on pushTaskToSender() notification unlock");
 }
 
 /**
@@ -249,3 +267,43 @@ bool getTask(int worker, Task *task){
     return val;
 }
 
+/**
+ * @brief Block until there is pending data
+ * 
+ */
+void awaitFurtherInfo()
+{
+    bool isEmpty = true;
+    int status;
+
+    if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
+            throwThreadError(status, "Error on awaitFurtherInfo() general lock");
+
+
+    for (int i = 0; i < groupSize-1; i++)
+    {
+        if ((status = pthread_mutex_lock(&fifoAccess[i])) != 0)
+            throwThreadError(status, "Error on awaitFurtherInfo() local lock");
+
+        // if not empty
+        if (!(ii[i] == ri[i] && !full[i]))
+        {
+            isEmpty = false;
+            if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
+                throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
+            break;
+        }
+
+        if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
+            throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
+    }
+
+    if (isEmpty)
+    {
+        if ((status = pthread_cond_wait(&fifoEmpty, &awaitAccess)) != 0)
+            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+    }
+
+     if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
+            throwThreadError(status, "Error on awaitFurtherInfo() general unlock");
+}
