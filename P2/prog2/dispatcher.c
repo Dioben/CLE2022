@@ -23,9 +23,7 @@
 void * dispatchFileTasksRoundRobin(){
     int nextDispatch = 1;
     for (int fIdx=0;fIdx<totalFileCount;fIdx++){
-        printf("trying for file %d\n",fIdx);
         char * filename = files[fIdx];
-
         FILE *file = fopen(filename, "rb");
         if (file == NULL){
             initResult(0);
@@ -43,7 +41,6 @@ void * dispatchFileTasksRoundRobin(){
 
         //init result struct
         initResult(count);
-        printf("file is init %d\n",fIdx);
 
         for (int i=0;i<count;i++){
             //read matrix from file
@@ -73,7 +70,6 @@ void * mergeChunks(){
     //for each file
     for(int i=0;i<totalFileCount;i++){
         Result* res = getResultToUpdate(i); //blocks until this results object has been initialized
-        printf("got access to %d\n",i);
         //for each determinant
         for (int k=0;k<(*res).matrixCount;k++){
             //get determinant
