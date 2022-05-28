@@ -13,19 +13,6 @@
 #define DISPATCHER_H_
 
 /**
- * @brief Struct containing the results calculated from a file.
- *
- * "matrixCount" - number of matrices in the file.
- * "determinants" - array with the determinant of all matrices.
- */
-typedef struct Result
-{
-    int matrixCount;
-    double *determinants;
-} Result;
-
-
-/**
  * @brief Parses a file into chunks, emits them via round robin
  *
  * 

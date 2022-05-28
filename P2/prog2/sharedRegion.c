@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multithreaded dispatcher for determinant calculation
  *
- * Shared region acessed by many threads at the same time.
+ * Shared region acessed by dispatcher and merger at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391

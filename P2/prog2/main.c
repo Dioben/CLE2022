@@ -14,6 +14,7 @@
 #include <libgen.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "worker.h"
 #include "dispatcher.h"
