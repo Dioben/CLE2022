@@ -27,6 +27,7 @@ void * dispatchFileTasksRoundRobin(){
         FILE *file = fopen(filename, "rb");
         if (file == NULL){
             initResult(0);
+            continue;
         }
 
 
@@ -68,27 +69,57 @@ void* emitTasksToWorkers(){
     bool working[groupSize-1];
     int currentlyWorking = groupSize-1;
 
-    //request handler objects
+    //request handler objects, last chunk received
     int requests[groupSize-1];
+    Task tasks[groupSize-1];
     for (int i=0;i<groupSize-1;i++){
         requests[i] = MPI_REQUEST_NULL;
+        tasks[i].order = 0;
     }
+
+    int killSignal = 0;
+
     int testStatus;
-    while (currentlyWorking>0){
+    while (true){
         
         for (int i=0;i<groupSize-1;i++){
             
+
             MPI_Test(requests[i],&testStatus,MPI_STATUS_IGNORE);
             if(working[i] && testStatus){
                 //worker is ready
-                //free() previous object
-                //getTask (non blocking if empty)
-                //if bad request set this thing to not working and send out a 0 to kill worker, decreaseCurrentlyWorking
-                //set up sending this one
+                //clear out last task
+                if (tasks[i].order>=0)
+                    free(tasks[i].matrix);
+                //try to get a new task
+                if (!getTask(i,tasks+i))
+                    tasks[i].order = 0; //avoid free in future loops
+                else{
+                    //is a kill request
+                    if (tasks[i].order == -1){
+                        currentlyWorking--;
+                        MPI_Isend(&killSignal,1,MPI_INT,i+1,0,MPI_COMM_WORLD,requests[i]);
+                        working[i] =false;
+                        continue;
+                    }
+                    //send this request
+                    MPI_ISend( &tasks[i].order , 1 , MPI_INT , i , 0 , MPI_COMM_WORLD,requests[i]);
+                    MPI_Request_free(requests[i]);
+                    MPI_ISend( tasks[i].matrix , tasks[i].order*tasks[i].order , MPI_DOUBLE , i+1 , 0 , MPI_COMM_WORLD,requests[i]);
+                }
+
             }
-            //if none of the previous ifs did anything check a smem method here
-            // that method returns if updates have been posted since last call or blocks for a signal on next update
+           
     }
+     //at this point we must figure out a way to wait without wasting resources
+    // awaitFurtherInfo reasonably should be able to check for new chunks still it was last called
+    //issues: we have accounted for chunks that we could not send due to busy worker
+    // ok i wasnt thinking about this from the smem manager's perspective
+    //you can reasonably check if each fifo is empty inside mutex and wait for signal if empty
+    if (currentlyWorking>0)
+        awaitFurtherInfo();
+    else
+        break;
     //wait for all the kill messages to have been sent
 
     }
