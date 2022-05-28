@@ -20,7 +20,7 @@
 #include "dispatcher.h"
 #include "sharedRegion.h"
 
-void * dispatchFileTasksRoundRobin(){
+void * dispatchFileTasksIntoSender(){
     int nextDispatch = 1;
     for (int fIdx=0;fIdx<totalFileCount;fIdx++){
         char * filename = files[fIdx];
@@ -85,7 +85,7 @@ void* emitTasksToWorkers(){
         for (int i=0;i<groupSize-1;i++){
             
 
-            MPI_Test(requests[i],&testStatus,MPI_STATUS_IGNORE);
+            MPI_Test(requests+i,&testStatus,MPI_STATUS_IGNORE);
             if(working[i] && testStatus){
                 //worker is ready
                 //clear out last task
@@ -98,14 +98,14 @@ void* emitTasksToWorkers(){
                     //is a kill request
                     if (tasks[i].order == -1){
                         currentlyWorking--;
-                        MPI_Isend(&killSignal,1,MPI_INT,i+1,0,MPI_COMM_WORLD,requests[i]);
+                        MPI_Isend(&killSignal,1,MPI_INT,i+1,0,MPI_COMM_WORLD,requests+i);
                         working[i] =false;
                         continue;
                     }
                     //send this request
-                    MPI_ISend( &tasks[i].order , 1 , MPI_INT , i , 0 , MPI_COMM_WORLD,requests[i]);
-                    MPI_Request_free(requests[i]);
-                    MPI_ISend( tasks[i].matrix , tasks[i].order*tasks[i].order , MPI_DOUBLE , i+1 , 0 , MPI_COMM_WORLD,requests[i]);
+                    MPI_Isend( &tasks[i].order , 1 , MPI_INT , i , 0 , MPI_COMM_WORLD,requests+i);
+                    MPI_Request_free(requests+i);
+                    MPI_Isend( tasks[i].matrix , tasks[i].order*tasks[i].order , MPI_DOUBLE , i+1 , 0 , MPI_COMM_WORLD,requests+i);
                 }
 
             }

@@ -125,6 +125,10 @@ void freeSharedRegion()
         if (results[i].matrixCount>=0)
             free(results[i].determinants);
     free(results);
+    for (int i = 0; i < groupSize-1; i++){
+        free(taskFIFO[i]);
+    }
+    free(taskFIFO);
 }
 
 /**
@@ -249,7 +253,7 @@ bool getTask(int worker, Task *task){
     // if not empty
     if (!(ii[worker] == ri[worker] && !full[worker]))
     {
-        task = &taskFIFO[ri[worker]];
+        task = &taskFIFO[worker][ri[worker]];
         ri[worker] = (ri[worker] + 1) % fifoSize;
         full[worker] = false;
 
