@@ -150,10 +150,14 @@ int main(int argc, char **args)
 
     int rank, size;
 
-    MPI_Init(&argc, &args);
+    int mode;
+    MPI_Init_thread(&argc, &args,MPI_THREAD_MULTIPLE,&mode);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    if (mode!=MPI_THREAD_MULTIPLE){
+        printf("WARNING: MPI is not running in proper multithreaded mode\n");
+    }
     if (size < 2)
     {
         printf("There is a 2 process minimum\n");
