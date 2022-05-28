@@ -111,9 +111,12 @@ void* emitTasksToWorkers(){
             }
            
     }
-    if (currentlyWorking>0)
-    //wait for any chunks to be available
+    if (currentlyWorking>0){
+        //wait for any chunks to be available, a worker to be available
         awaitFurtherInfo();
+        MPI_Waitany(groupSize-1,requests,NULL,MPI_STATUS_IGNORE);
+    }
+
     else
         break;
     //wait for all the kill messages to have been sent
