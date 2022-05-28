@@ -262,18 +262,25 @@ bool getTask(int worker, Task *task){
 void awaitCurrentInfo()
 {
     bool isEmpty = true;
+    int status;
+
     for (int i = 0; i < groupSize-1; i++)
     {
+        if ((status = pthread_mutex_lock(&fifoAccess[i])) != 0)
+            throwThreadError(status, "Error on putTask() lock");
+
         // if not empty
         if (!(ii[i] == ri[i] && !full[i]))
         {
             isEmpty = false;
             break;
         }
+
+        if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
+            throwThreadError(status, "Error on putTask() unlock");
     }
     if (isEmpty)
     {
-        int status;
         if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
             throwThreadError(status, "Error on putTask() lock");
 
