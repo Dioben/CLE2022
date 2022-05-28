@@ -49,7 +49,7 @@ extern int groupSize;
  * @param _files array with the file names of all files
  * @param workers number of available worker processes
  */
-extern void initSharedRegion(int _totalFileCount, char *_files[], int workers);
+extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, int _fifoSize);
 
 /**
  * @brief Frees all memory allocated during initialization of the shared region or the results.
@@ -95,8 +95,9 @@ extern void pushTaskToSender(int worker,Task task);
  * @brief Get a task for a given worker
  * 
  * @param worker worker rank
- * @return Task* a task meant for the worker
+ * @param task a task meant for the worker
+ * @return if getTask was successful (fifo was not empty)
  */
-extern Task* getTask(int worker);
+extern bool getTask(int worker, Task *task);
 
 #endif
