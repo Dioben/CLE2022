@@ -39,8 +39,9 @@ extern char **files;
  *
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
+ * @param workers number of available worker processes
  */
-extern void initSharedRegion(int _totalFileCount, char *_files[]);
+extern void initSharedRegion(int _totalFileCount, char *_files[], int workers);
 
 /**
  * @brief Frees all memory allocated during initialization of the shared region or the results.

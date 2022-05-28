@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "dispatcher.h"
+#include "sharedRegion.h"
 
 int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result* result){
     FILE *file = fopen(filename, "rb");
@@ -56,7 +57,7 @@ int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result
 return nextDispatch;
 }
 
-void mergeChunks(int size, Result* results, int resultCount){
+void mergeChunks(int size){
     int nextReceive = 1;
     //for each file
     for(int i=0;i<resultCount;i++){

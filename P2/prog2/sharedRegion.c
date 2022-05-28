@@ -23,8 +23,8 @@ int totalFileCount;
 /** @brief Array with the file names of all files. */
 char **files;
 
-/** @brief Number of files assigned to workers. */
-static int assignedFileCount;
+/** @brief Number of workers. */
+static int workers;
 
 /** @brief Index of last initialized results object. */
 static int initializedResults;
@@ -62,7 +62,7 @@ static void throwThreadError(int error, char *string)
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
  */
-void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount])
+void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int size)
 {
     totalFileCount = _totalFileCount;
     files = _files;
@@ -70,6 +70,8 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount])
 
     initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
+    workers = size-1;
+    
 }
 
 /**
