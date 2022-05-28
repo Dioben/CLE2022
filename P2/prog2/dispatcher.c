@@ -15,6 +15,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "dispatcher.h"
 #include "sharedRegion.h"
@@ -62,6 +63,7 @@ void * dispatchFileTasksRoundRobin(){
         // signal that there's nothing left for workers to process
         MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
     
+    pthread_exit((int *)EXIT_SUCCESS);
 }
 
 void * mergeChunks(){
@@ -79,5 +81,7 @@ void * mergeChunks(){
                 nextReceive=1;
         }
     }
+
+    pthread_exit((int *)EXIT_SUCCESS);
 
 }
