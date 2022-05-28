@@ -105,7 +105,7 @@ void whileTasksWorkAndSendResult()
                 matrix = malloc(sizeof(double) * size*size);
             }//matrix has been allocated
             else{
-                matrix = realloc(matrix,size*size);
+                matrix = realloc(matrix,sizeof(double) *size*size);
             }
             currentMax = size;
         }
