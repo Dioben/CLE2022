@@ -1,9 +1,9 @@
 /**
  * @file sharedRegion.c (implementation file)
  *
- * @brief Problem name: multithreaded dispatcher for determinant calculation
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
- * Shared region acessed by dispatcher and merger at the same time.
+ * Shared region acessed by reader, sender, and merger at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -23,11 +23,11 @@ int totalFileCount;
 /** @brief Array with the file names of all files. */
 char **files;
 
-/** @brief Total process count. */
-int groupSize;
+/** @brief Total process count. Includes rank 0. */
+int processCount;
 
 /** @brief Index of last initialized results object. */
-static int initializedResults;
+static int lastInitializedResult;
 
 /** @brief Array of the results for each file. */
 static Result *results;
@@ -38,35 +38,35 @@ static int fifoSize;
 /** @brief FIFOs with all the queued tasks. 1 per worker. */
 static Task **taskFIFO;
 
-/** @brief Insertion pointer to the task FIFO. */
+/** @brief Insertion pointers to the task FIFOs. */
 static int *ii;
 
-/** @brief Retrieval pointer to the task FIFO. */
+/** @brief Retrieval pointers to the task FIFOs. */
 static int *ri;
 
-/** @brief Flag signaling the task FIFO is full. */
+/** @brief Flags signaling the task FIFOs are full. */
 static bool *full;
 
 /** @brief Synchronization point when a new result object is initialized. */
 static pthread_cond_t resultInitialized;
 
-/** @brief Synchronization point when a new result object is initialized. */
+/** @brief Synchronization point when a chunk count is increased. */
 static pthread_cond_t chunksIncreased;
 
 /** @brief Locking flag which warrants mutual exclusion while accessing the results array. */
 static pthread_mutex_t resultsAccess = PTHREAD_MUTEX_INITIALIZER;
 
-/** @brief Locking flag which warrants mutual exclusion while accessing the task FIFO. */
+/** @brief Locking flags which warrant mutual exclusion while accessing the task FIFOs. */
 static pthread_mutex_t *fifoAccess;
 
-/** @brief Locking flag to allow wait in awaitFurtherInfo. */
+/** @brief Locking flag to allow wait in awaitFurtherTasks. */
 static pthread_mutex_t awaitAccess = PTHREAD_MUTEX_INITIALIZER;
 
-/** @brief Synchronization point when the task FIFO is full. */
+/** @brief Synchronization points when the task FIFOs are full. */
 static pthread_cond_t *fifoFull;
 
-/** @brief Synchronization point when the task FIFO is empty. */
-static pthread_cond_t fifoEmpty;
+/** @brief Synchronization point when a new task is pushed. */
+static pthread_cond_t newTask;
 
 /**
  * @brief Throws error and stops thread that threw.
@@ -88,27 +88,32 @@ static void throwThreadError(int error, char *string)
  *
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
+ * @param _processCount total process count
+ * @param _fifoSize number of tasks that can be queued up for each worker
  */
-void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int size, int _fifoSize)
+void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _processCount, int _fifoSize)
 {
     totalFileCount = _totalFileCount;
     files = _files;
+    processCount = _processCount;
     fifoSize = _fifoSize;
+    lastInitializedResult = -1;
+
     results = malloc(sizeof(Result) * totalFileCount);
 
-    initializedResults = -1;
     pthread_cond_init(&resultInitialized, NULL);
     pthread_cond_init(&chunksIncreased, NULL);
-    groupSize = size;
-    pthread_cond_init(&fifoEmpty, NULL);
-        
-    ii = malloc(sizeof(int) * (groupSize-1));
-    ri = malloc(sizeof(int) * (groupSize-1));
-    full = malloc(sizeof(bool) * (groupSize-1));
-    fifoAccess = malloc(sizeof(pthread_mutex_t) * (groupSize-1));
-    fifoFull = malloc(sizeof(pthread_cond_t) * (groupSize-1));
-    taskFIFO = malloc(sizeof(Task*) * (groupSize-1));
-    for (int i = 0; i < (groupSize-1); i++) {
+    pthread_cond_init(&newTask, NULL);
+
+    // create a FIFO per worker
+    ii = malloc(sizeof(int) * (processCount - 1));
+    ri = malloc(sizeof(int) * (processCount - 1));
+    full = malloc(sizeof(bool) * (processCount - 1));
+    fifoAccess = malloc(sizeof(pthread_mutex_t) * (processCount - 1));
+    fifoFull = malloc(sizeof(pthread_cond_t) * (processCount - 1));
+    taskFIFO = malloc(sizeof(Task *) * (processCount - 1));
+    for (int i = 0; i < (processCount - 1); i++)
+    {
         ii[i] = 0;
         ri[i] = 0;
         full[i] = false;
@@ -126,7 +131,8 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
 void freeSharedRegion()
 {
     free(results);
-    for (int i = 0; i < groupSize-1; i++){
+    for (int i = 0; i < processCount - 1; i++)
+    {
         free(taskFIFO[i]);
     }
     free(taskFIFO);
@@ -138,9 +144,7 @@ void freeSharedRegion()
 }
 
 /**
- * @brief Initializes the result of a file.
- *
- * @param matrixCount number of matrices in the file
+ * @brief Initializes the result of the next file.
  */
 void initResult()
 {
@@ -150,92 +154,109 @@ void initResult()
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on initResult() lock");
 
-    results[++initializedResults].chunks = 0;
-    results[initializedResults].consonantEndCount = 0;
-    results[initializedResults].vowelStartCount = 0;
-    results[initializedResults].wordCount = 0;
+    results[++lastInitializedResult].chunks = 0;
+    results[lastInitializedResult].consonantEndCount = 0;
+    results[lastInitializedResult].vowelStartCount = 0;
+    results[lastInitializedResult].wordCount = 0;
 
     if ((status = pthread_cond_signal(&resultInitialized)) != 0)
-        throwThreadError(status, "Error on initResult() new result signal");
+        throwThreadError(status, "Error on initResult() resultInitialized signal");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on initResult() unlock");
 }
 
 /**
- * @brief Used when dispatcher has finished reading so that hasMoreChunks can handle the last file.
+ * @brief Used when dispatcher has finished reading so that hasMoreChunks() can handle the last file.
  */
 void finishedReading()
 {
     int status;
 
-    initializedResults++;
+    lastInitializedResult++;
+
+    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
+        throwThreadError(status, "Error on finishedReading() lock");
 
     if ((status = pthread_cond_signal(&chunksIncreased)) != 0)
-        throwThreadError(status, "Error on initResult() new result signal");
+        throwThreadError(status, "Error on finishedReading() chunksIncreased signal");
+
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
+        throwThreadError(status, "Error on finishedReading() lock");
 }
 
 /**
- * @brief Allows merger to get a result object, will block until result at index has been initialized
+ * @brief Increment the chunks read by 1.
  *
  * @param fileIndex index of the file
- * @param matrixIndex index of the matrix in the file
- * @param determinant determinant of the matrix
  */
-Result* getResultToUpdate(int idx)
+void incrementChunks(int fileIndex)
 {
-    if (idx>=totalFileCount)
-       return NULL;
+    int status;
+
+    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
+        throwThreadError(status, "Error on incrementChunks() lock");
+
+    results[fileIndex].chunks++;
+
+    if ((status = pthread_cond_signal(&chunksIncreased)) != 0)
+        throwThreadError(status, "Error on incrementChunks() chunksIncreased signal");
+
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
+        throwThreadError(status, "Error on incrementChunks() lock");
+}
+
+/**
+ * @brief Allows merger to get a result object, will block until result at index has been initialized.
+ *
+ * @param fileIndex index of the file
+ */
+Result *getResultToUpdate(int fileIndex)
+{
+    if (fileIndex >= totalFileCount)
+        return NULL;
 
     int status;
 
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() lock");
 
-    //wait for result initialization
-    while(idx>initializedResults)
+    // wait for result initialization
+    while (fileIndex > lastInitializedResult)
         if ((status = pthread_cond_wait(&resultInitialized, &resultsAccess)) != 0)
-            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+            throwThreadError(status, "Error on getResultToUpdate() resultInitialized wait");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() unlock");
-    return &results[idx];
+    return &results[fileIndex];
 }
 
-void incrementChunks(int fileIndex)
-{
-    int status;
-
-    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
-
-    results[fileIndex].chunks++;
-
-    if ((status = pthread_cond_signal(&chunksIncreased)) != 0)
-        throwThreadError(status, "Error on initResult() new result signal");
-
-    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
-}
-
+/**
+ * @brief Will wait until there are more chunks to be used in the file or all chunks have already been used.
+ *
+ * @param fileIndex index of the file
+ * @param currentChunk last chunk to be used
+ * @return if there are more chunks of the file to be used
+ */
 bool hasMoreChunks(int fileIndex, int currentChunk)
 {
     bool val;
     int status;
 
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on hasMoreChunks() lock");
 
-    // wait if there are chunks left in the current fileIndex
-    while(fileIndex>=initializedResults && currentChunk>=results[fileIndex].chunks)
+    // wait until there are chunks left in the current fileIndex
+    // or it has been confirmed that no more chunks will be read
+    while (fileIndex >= lastInitializedResult && currentChunk >= results[fileIndex].chunks)
         if ((status = pthread_cond_wait(&chunksIncreased, &resultsAccess)) != 0)
-            throwThreadError(status, "Error on getTask() fifoEmpty wait");
-    
+            throwThreadError(status, "Error on hasMoreChunks() chunksIncreased wait");
+
     // if false, all chunks of current file index have been used
-    val = currentChunk<results[fileIndex].chunks;
+    val = currentChunk < results[fileIndex].chunks;
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on hasMoreChunks() lock");
 
     return val;
 }
@@ -262,61 +283,62 @@ Result *getResults()
 }
 
 /**
- * @brief Pushes a chunk to a given worker's queue
- * Notifies anyone inside awaitFurtherInfo
- * 
- * @param worker rank of worker chunk is meant for
+ * @brief Pushes a chunk to a given worker's queue.
+ *
+ * Notifies anyone inside awaitFurtherTasks.
+ *
+ * @param worker worker rank minus 1
  * @param task task that worker must perform
  */
-void pushTaskToSender(int worker,Task task){
-    worker--; // turns [1,groupSize] to [0,groupSize-1]
+void pushTaskToSender(int worker, Task task)
+{
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() lock");
+        throwThreadError(status, "Error on pushTaskToSender() fifoAccess lock");
 
     while (full[worker])
         if ((status = pthread_cond_wait(&fifoFull[worker], &fifoAccess[worker])) != 0)
-                throwThreadError(status, "Error on pushTaskToSender() fifoFull wait");
-    
+            throwThreadError(status, "Error on pushTaskToSender() fifoFull wait");
+
     taskFIFO[worker][ii[worker]] = task;
     ii[worker] = (ii[worker] + 1) % fifoSize;
     full[worker] = (ii[worker] == ri[worker]);
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() unlock");
+        throwThreadError(status, "Error on pushTaskToSender() fifoAccess unlock");
 
-
-    //notify that there's new content
+    // notify that there's new content
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
-            throwThreadError(status, "Error on pushTaskToSender() notification lock");
+        throwThreadError(status, "Error on pushTaskToSender() awaitAccess lock");
 
-    if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
-        throwThreadError(status, "Error on putTask() fifoEmpty signal");
+    if ((status = pthread_cond_signal(&newTask)) != 0)
+        throwThreadError(status, "Error on pushTaskToSender() newTask signal");
 
     if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() notification unlock");
+        throwThreadError(status, "Error on pushTaskToSender() awaitAccess unlock");
 }
-
 
 /**
  * @brief Get a task for a given worker
- * 
+ *
  * @param worker worker rank minus 1
- * @return Task* a task meant for the worker
+ * @param task a task meant for the worker
+ * @return if getTask was successful (fifo was not empty)
  */
-bool getTask(int worker, Task *task){
+bool getTask(int worker, Task *task)
+{
     bool val = true;
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on getTask() lock");
+
     // if not empty
     if (!(ii[worker] == ri[worker] && !full[worker]))
     {
         (*task).byteCount = taskFIFO[worker][ri[worker]].byteCount;
         (*task).bytes = taskFIFO[worker][ri[worker]].bytes;
-
 
         ri[worker] = (ri[worker] + 1) % fifoSize;
         full[worker] = false;
@@ -331,46 +353,44 @@ bool getTask(int worker, Task *task){
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on getTask() unlock");
-    
+
     return val;
 }
 
 /**
- * @brief Block until there is pending data
- * 
+ * @brief Block until there are pending tasks.
  */
-void awaitFurtherInfo()
+void awaitFurtherTasks()
 {
     bool isEmpty = true;
     int status;
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() general lock");
+        throwThreadError(status, "Error on awaitFurtherInfo() awaitAccess lock");
 
-
-    for (int i = 0; i < groupSize-1; i++)
+    for (int i = 0; i < processCount - 1; i++)
     {
         if ((status = pthread_mutex_lock(&fifoAccess[i])) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() local lock");
+            throwThreadError(status, "Error on awaitFurtherInfo() fifoAccess lock");
 
         // if not empty
         if (!(ii[i] == ri[i] && !full[i]))
         {
             isEmpty = false;
             if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
-                throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
+                throwThreadError(status, "Error on awaitFurtherInfo() fifoAccess (is not empty) unlock");
             break;
         }
 
         if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
+            throwThreadError(status, "Error on awaitFurtherInfo() fifoAccess unlock");
     }
 
     if (isEmpty)
     {
-        if ((status = pthread_cond_wait(&fifoEmpty, &awaitAccess)) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() fifoEmpty wait");
+        if ((status = pthread_cond_wait(&newTask, &awaitAccess)) != 0)
+            throwThreadError(status, "Error on awaitFurtherInfo() newTask wait");
     }
 
-     if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() general unlock");
+    if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
+        throwThreadError(status, "Error on awaitFurtherInfo() awaitAccess unlock");
 }

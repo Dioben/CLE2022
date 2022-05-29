@@ -1,9 +1,9 @@
 /**
  * @file worker.c (implementation file)
  *
- * @brief Problem name: multiprocess determinant calculation
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
- * Contains implementation of the worker threads.
+ * Contains implementation of the worker processes.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -17,10 +17,8 @@
 #include <errno.h>
 
 #include "worker.h"
-#include "dispatcher.h"
 #include "utfUtils.h"
-#include "sharedRegion.h"
-
+#include "sharedRegion.h" // only used for the structs
 
 /**
  * @brief Reads an UTF-8 character from a byte array.
@@ -42,7 +40,7 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
         if (letter != 0x000000ff)
         {
             errno = EINVAL;
-            perror("Invalid text found");
+            perror("Invalid text found (bytes)");
         }
         return EOF;
     }
@@ -58,10 +56,11 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
 /**
  * @brief Calculates the result from a task.
  *
- * @param task Task struct
+ * @param byteCount number of bytes in the task
+ * @param bytes array with the bytes
  * @return Result struct
  */
-static Result parseTask(int byteCount, char* bytes)
+static Result parseTask(int byteCount, char *bytes)
 {
     Result result = {.vowelStartCount = 0,
                      .consonantEndCount = 0,
@@ -96,7 +95,7 @@ static Result parseTask(int byteCount, char* bytes)
         {
             letter = nextLetter;
             nextLetter = readLetterFromBytes(&bytesRead, bytes);
-        } while (nextLetter != EOF && !isSeparator(nextLetter));
+        } while (nextLetter != EOF && !isSeparator(nextLetter) && bytesRead < byteCount);
 
         if (isConsonant(letter))
             result.consonantEndCount += 1;
@@ -108,52 +107,60 @@ static Result parseTask(int byteCount, char* bytes)
     return result;
 }
 
+/**
+ * @brief Worker process loop.
+ *
+ * Receives tasks via send and returns results from tasks.
+ */
 void whileTasksWorkAndSendResult()
 {
-    // task size, how much memory we've allocated, task itself,result of calculus
-    int size;
-    int currentMax = 0;
-    char * chunk;
-    Result result;
+    int chunkSize;      // chunk size, in bytes
+    char *chunk;        // task
+    int currentMax = 0; // how many bytes have been allocated for chunks
+    Result result;      // result of the task processing
     int sendArray[3];
-    
+
     MPI_Request req = MPI_REQUEST_NULL;
     while (true)
     {
-        //receive next task chunk size
-        MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        //signal to stop working
-        if (size<1){
-            MPI_Wait(&req,MPI_STATUS_IGNORE); //wait for last response to be read before shutdown
+        // receive next task chunk size
+        MPI_Recv(&chunkSize, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        // signal to stop working
+        if (chunkSize < 1)
+        {
+            // wait for last response to be read before shutdown
+            MPI_Wait(&req, MPI_STATUS_IGNORE);
             break;
         }
 
-        //our current chunk buffer isnt large enough
-        if (size>currentMax){
-            //matrix has not been allocated yet
-            if (currentMax == 0){
-                chunk = malloc(sizeof(char) *size);
-            }//matrix has been allocated
-            else{
-                chunk = realloc(chunk,sizeof(char) *size);
-            }
-            currentMax = size;
-        }
-        //receive chunk
-        MPI_Recv(chunk,size,MPI_CHAR,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        result = parseTask(size,chunk);
+        // if our current chunk buffer isnt large enough
+        if (chunkSize > currentMax)
+        {
+            // if matrix has not been allocated yet
+            if (currentMax == 0)
+                chunk = malloc(sizeof(char) * chunkSize);
+            else
+                chunk = realloc(chunk, sizeof(char) * chunkSize);
 
-        //wait for last send to cleared
-        if (req !=MPI_REQUEST_NULL)
-            MPI_Wait(&req,MPI_STATUS_IGNORE);
+            currentMax = chunkSize;
+        }
+
+        // receive chunk
+        MPI_Recv(chunk, chunkSize, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        result = parseTask(chunkSize, chunk);
+
+        // wait for last send to cleared
+        if (req != MPI_REQUEST_NULL)
+            MPI_Wait(&req, MPI_STATUS_IGNORE);
+
+        // send back result
         sendArray[0] = result.wordCount;
         sendArray[1] = result.vowelStartCount;
         sendArray[2] = result.consonantEndCount;
-        //send back result, WC, startVowel , endConsonant
-        MPI_Isend( sendArray , 3 , MPI_INT , 0 , 0 , MPI_COMM_WORLD , &req);
+        MPI_Isend(sendArray, 3, MPI_INT, 0, 0, MPI_COMM_WORLD, &req);
     }
 
-    if (currentMax>0)
+    if (currentMax > 0)
         free(chunk);
-
 }

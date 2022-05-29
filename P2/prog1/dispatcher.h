@@ -1,9 +1,9 @@
 /**
- * @file sharedRegion.h (interface file)
+ * @file dispatcher.h (interface file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
- * Shared region acessed by many threads at the same time.
+ * Contains implementation of the dispatcher process threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -13,21 +13,26 @@
 #define DISPATCHER_H_
 
 /**
- * @brief Parses a file into chunks, emits them towards the publisher
+ * @brief Thread that reads file contents into local buffers so they can be sent to workers in a round-robin fashion.
  *
+ * Will block when pushing chunks if it builds a significant lead over sender.
+ *
+ * @return pointer to the identification of this thread
  */
-extern void* dispatchFileTasksIntoSender();
+extern void *dispatchFileTasksIntoSender();
 
 /**
- * @brief Takes file chunks and sends them to workers
- *
+ * @brief Thread that emits chunks toward workers in a non-blocking manner.
+ * 
+ * @return pointer to the identification of this thread
  */
-extern void* emitTasksToWorkers();
+extern void *emitTasksToWorkers();
 
 /**
- * @brief Merges task results from workers onto a results array
+ * @brief Thread that merges file chunks read by workers into their results structure.
  *
+ * @return pointer to the identification of this thread
  */
-extern void* mergeChunks();
+extern void *mergeChunks();
 
 #endif
