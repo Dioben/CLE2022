@@ -25,7 +25,7 @@
  * @param matrix 1D representation of the matrix
  * @return determinant of the matrix
  */
-static double calculateDeterminant(int order, double *matrix) // TODO: something can go wrong here
+static double calculateDeterminant(int order, double *matrix)
 {
     // if matrix is small do a simpler calculation
     if (order == 1)
