@@ -58,7 +58,7 @@ extern int groupSize;
  * @param _files array with the file names of all files
  * @param workers number of available worker processes
  */
-extern void initSharedRegion(int _totalFileCount, char *_files[], int workers);
+extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, int _fifoSize);
 
 /**
  * @brief Frees all memory allocated during initialization of the shared region or the results.
@@ -98,4 +98,27 @@ bool hasMoreChunks(int fileIndex, int currentChunks);
 
 void finishedReading();
 
+
+/**
+ * @brief Pushes a chunk to a given worker's queue
+ * 
+ * @param worker rank of worker chunk is meant for
+ * @param task task that worker must perform
+ */
+extern void pushTaskToSender(int worker,Task task);
+
+/**
+ * @brief Get a task for a given worker
+ * 
+ * @param worker worker rank
+ * @param task a task meant for the worker
+ * @return if getTask was successful (fifo was not empty)
+ */
+extern bool getTask(int worker, Task *task);
+
+/**
+ * @brief Block until there is pending data
+ * 
+ */
+extern void awaitFurtherInfo();
 #endif

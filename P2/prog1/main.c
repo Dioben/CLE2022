@@ -147,8 +147,11 @@ int main(int argc, char **args)
 
     int rank, size;
 
+    //MPI threading support afforded to us
     int provided;
+
     MPI_Init_thread(&argc, &args, MPI_THREAD_MULTIPLE, &provided);
+
     if (provided < MPI_THREAD_MULTIPLE) {
         printf("The threading support level is lesser than demanded.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -166,10 +169,10 @@ int main(int argc, char **args)
 
     if (rank == 0)
     { // dispatcher
-        int stop = 0; //TODO: TRY REPLACE WITH EXIT_SUCCESS
         CMDArgs cmdArgs = parseCMD(argc, args);
         if (cmdArgs.status == EXIT_FAILURE)
         {
+            int stop = 0;
             for (int i = 1; i < size; i++)
                 // signal that there's nothing left to process
                 MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
@@ -182,13 +185,30 @@ int main(int argc, char **args)
         struct timespec start, finish;              // time measurement
         clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
-        initSharedRegion(fileCount, fileNames,size);
+        initSharedRegion(fileCount, fileNames,size,10);
 
-        //create dispatcher thread
-        pthread_t dispatcher;
-        if (pthread_create(&dispatcher, NULL, dispatchFileTasksRoundRobin, NULL) != 0)
+        //create reader thread
+        pthread_t reader;
+        if (pthread_create(&reader, NULL, dispatchFileTasksIntoSender, NULL) != 0)
             {
             perror("Error on creating dispatcher");
+
+            int stop = 0;
+            for (int i = 1; i < size; i++)
+                // signal that there's nothing left to process
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
+
+            free(cmdArgs.fileNames);
+            freeSharedRegion();
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+
+        //create sender thread
+        pthread_t sender;
+        if (pthread_create(&sender, NULL, emitTasksToWorkers, NULL) != 0)
+            {
+            perror("Error on creating sender");
 
             int stop = 0;
             for (int i = 1; i < size; i++)
@@ -216,6 +236,20 @@ int main(int argc, char **args)
         if (pthread_join(merger, NULL) != 0)
         {
             perror("Error on waiting for merger thread");
+            exit(EXIT_FAILURE);
+        }
+
+        //wait for sender
+        if (pthread_join(sender, NULL) != 0)
+        {
+            perror("Error on waiting for sender thread");
+            exit(EXIT_FAILURE);
+        }
+
+        //wait for reader
+        if (pthread_join(reader, NULL) != 0)
+        {
+            perror("Error on waiting for reader thread");
             exit(EXIT_FAILURE);
         }
 
