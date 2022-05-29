@@ -23,7 +23,7 @@
 #include "sharedRegion.h"
 
 /** @brief The initial max number of bytes of the text chunk in a task. */
-static const int MAX_BYTES_READ = 500;
+static const int MAX_BYTES_READ = 1500;
 
 /** @brief How many bytes the first text read leaves empty. */
 static const int BYTES_READ_BUFFER = 50;
@@ -46,7 +46,7 @@ int readLetterFromFile(FILE *file)
     if (loops < 0)
     {
         errno = EINVAL;
-        perror("Invalid text found");
+        perror("Invalid text found (file)");
         return EOF;
     }
 
@@ -128,7 +128,7 @@ static Task readBytes(FILE *file)
         }
     } while (!(isSeparator(letter) || isBridge(letter) || letter == EOF));
 
-    task.bytes[task.byteCount] = EOF;
+    task.bytes[task.byteCount++] = EOF;
 
     return task;
 }

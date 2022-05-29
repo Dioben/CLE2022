@@ -40,7 +40,7 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
         if (letter != 0x000000ff)
         {
             errno = EINVAL;
-            perror("Invalid text found");
+            perror("Invalid text found (bytes)");
         }
         return EOF;
     }
@@ -95,7 +95,7 @@ static Result parseTask(int byteCount, char *bytes)
         {
             letter = nextLetter;
             nextLetter = readLetterFromBytes(&bytesRead, bytes);
-        } while (nextLetter != EOF && !isSeparator(nextLetter));
+        } while (nextLetter != EOF && !isSeparator(nextLetter) && bytesRead < byteCount);
 
         if (isConsonant(letter))
             result.consonantEndCount += 1;
