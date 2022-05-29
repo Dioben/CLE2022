@@ -1,9 +1,9 @@
 /**
- * @file sharedRegion.h (interface file)
+ * @file dispatcher.h (interface file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess determinant calculation
  *
- * Shared region acessed by many threads at the same time.
+ * Defines dispatcher thread methods
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -13,12 +13,16 @@
 #define DISPATCHER_H_
 
 /**
- * @brief Parses a file into chunks, emits them via round robin
+ * @brief Parses a file into chunks, emits them towards the publisher
  *
- * 
- * @return next worker in line for task dispatch
  */
-extern void* dispatchFileTasksRoundRobin();
+extern void* dispatchFileTasksIntoSender();
+
+/**
+ * @brief Takes file chunks and sends them to workers
+ *
+ */
+extern void* emitTasksToWorkers();
 
 /**
  * @brief Merges task results from workers onto a results array

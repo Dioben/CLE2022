@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multithreaded dispatcher for determinant calculation
  *
- * Shared region acessed by dispatcher and merger threads at the same time.
+ * Shared region acessed by dispatcher, sender, and merger threads at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -17,14 +17,26 @@
 /**
  * @brief Struct containing the results calculated from a file.
  *
- * "marixCount" - number of matrices in the file.
- * "determinants" - array with the determinant of all matrices.
+ * @param marixCount - number of matrices in the file.
+ * @param determinants - array with the determinant of all matrices.
  */
 typedef struct Result
 {
     int matrixCount;
     double *determinants;
 } Result;
+
+/**
+ * @brief Structure relative to a single task
+ * 
+ * @param order size of matrix
+ * @param matrix pointer to matrix array of size order*order
+ */
+typedef struct Task
+{
+   int order;
+   double *matrix;
+}Task;
 
 /** @brief Number of files to be processed. */
 extern int totalFileCount;
@@ -43,7 +55,7 @@ extern int groupSize;
  * @param _files array with the file names of all files
  * @param workers number of available worker processes
  */
-extern void initSharedRegion(int _totalFileCount, char *_files[], int workers);
+extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, int _fifoSize);
 
 /**
  * @brief Frees all memory allocated during initialization of the shared region or the results.
@@ -77,4 +89,26 @@ extern Result *getResults();
  */
 extern Result* getResultToUpdate(int idx);
 
+/**
+ * @brief Pushes a chunk to a given worker's queue
+ * 
+ * @param worker rank of worker chunk is meant for
+ * @param task task that worker must perform
+ */
+extern void pushTaskToSender(int worker,Task task);
+
+/**
+ * @brief Get a task for a given worker
+ * 
+ * @param worker worker rank
+ * @param task a task meant for the worker
+ * @return if getTask was successful (fifo was not empty)
+ */
+extern bool getTask(int worker, Task *task);
+
+/**
+ * @brief Block until there is pending data
+ * 
+ */
+extern void awaitFurtherInfo();
 #endif

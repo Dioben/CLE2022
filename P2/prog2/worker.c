@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multiprocess determinant calculation
  *
- * Contains implementation of the worker processes.
+ * Contains implementation of the worker process.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -76,13 +76,18 @@ static double calculateDeterminant(int order, double *matrix) //TODO: something 
     return determinant;
 }
 
+/**
+ * @brief Solves matrix determinants as long as tasks are provided
+ * Receives an int for order followed by order*order doubles
+ * If order is less than 1 this function exits
+ * 
+ */
 void whileTasksWorkAndSendResult()
 {
     // matrix size, how much memory we've allocated, matrix itself,result of calculus
     int size;
     int currentMax = 0;
     double *matrix;
-    double determinant;
     
     MPI_Request req = MPI_REQUEST_NULL;
     while (true)
@@ -98,12 +103,13 @@ void whileTasksWorkAndSendResult()
         //free last request's handler if not in first loop
         if (req !=MPI_REQUEST_NULL)
             MPI_Request_free(&req);
+
         //our current matrix buffer isnt large enough
         if (size>currentMax){
             //matrix has not been allocated yet
             if (currentMax == 0){
                 matrix = malloc(sizeof(double) * size*size);
-            }//matrix has been allocated
+            }//matrix has been allocated, must expand
             else{
                 matrix = realloc(matrix,sizeof(double) *size*size);
             }
@@ -111,12 +117,13 @@ void whileTasksWorkAndSendResult()
         }
         //receive matrix
         MPI_Recv(matrix,size*size,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        determinant = calculateDeterminant(size,matrix);
+        //calculate result
+        double determinant = calculateDeterminant(size,matrix);
         //send back result
         MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , &req);
     }
 
     if (currentMax>0)
         free(matrix);
-
+        
 }
