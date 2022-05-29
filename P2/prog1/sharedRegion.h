@@ -115,7 +115,7 @@ extern Result *getResults();
  *
  * Notifies anyone inside awaitFurtherTasks.
  *
- * @param worker rank of worker chunk is meant for
+ * @param worker worker rank minus 1
  * @param task task that worker must perform
  */
 extern void pushTaskToSender(int worker, Task task);

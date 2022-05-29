@@ -60,9 +60,9 @@ void *dispatchFileTasksIntoSender()
             fread(task.matrix, 8, order * order, file);
 
             // send task into respective queue, this may block
-            pushTaskToSender(nextDispatch, task);
+            pushTaskToSender(nextDispatch - 1, task);
 
-            // advance dispatch number, wraps back to 1 after size
+            // advance dispatch number, wraps back to 1 after processCount
             nextDispatch++;
             if (nextDispatch >= processCount)
                 nextDispatch = 1;
@@ -71,7 +71,7 @@ void *dispatchFileTasksIntoSender()
 
     // send signal to stop workers
     Task stop = {.order = -1, .matrix = NULL};
-    for (int i = 1; i < processCount; i++)
+    for (int i = 0; i < processCount - 1; i++)
         pushTaskToSender(i, stop);
 
     pthread_exit((int *)EXIT_SUCCESS);

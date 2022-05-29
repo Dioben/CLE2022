@@ -173,7 +173,7 @@ void *dispatchFileTasksIntoSender()
             incrementChunks(fIdx);
 
             // send task into respective queue, this may block
-            pushTaskToSender(nextDispatch, task);
+            pushTaskToSender(nextDispatch - 1, task);
 
             // advance dispatch number, wraps back to 1 after processCount
             nextDispatch++;
@@ -187,7 +187,7 @@ void *dispatchFileTasksIntoSender()
 
     // send signal to stop workers
     Task stop = {.byteCount = -1};
-    for (int i = 1; i < processCount; i++)
+    for (int i = 0; i < processCount - 1; i++)
         pushTaskToSender(i, stop);
 
     pthread_exit((int *)EXIT_SUCCESS);

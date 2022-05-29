@@ -287,12 +287,11 @@ Result *getResults()
  *
  * Notifies anyone inside awaitFurtherTasks.
  *
- * @param worker rank of worker chunk is meant for
+ * @param worker worker rank minus 1
  * @param task task that worker must perform
  */
 void pushTaskToSender(int worker, Task task)
 {
-    worker--; // turns [1,processCount] to [0,processCount-1]
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
