@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multiprocess determinant calculation
  *
- * Contains implementation of the dispatcher process.
+ * Contains implementation of the dispatcher process threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -20,12 +20,20 @@
 #include "dispatcher.h"
 #include "sharedRegion.h"
 
+/**
+ * @brief Reads file contents into local buffers so they can be sent to workers in a round-robin fashion
+ * 
+ * Will block when pushing chunks if it builds a significant lead over sender
+ * 
+ * @return void* 
+ */
 void * dispatchFileTasksIntoSender(){
     int nextDispatch = 1;
     for (int fIdx=0;fIdx<totalFileCount;fIdx++){
         char * filename = files[fIdx];
         FILE *file = fopen(filename, "rb");
         if (file == NULL){
+            //declare this file a dud and move on
             initResult(0);
             continue;
         }
@@ -46,6 +54,8 @@ void * dispatchFileTasksIntoSender(){
             //read matrix from file
             Task task = {.order = order, .matrix = malloc(sizeof(double)*order*order)};
             fread(task.matrix, 8 , order*order, file);
+
+            //send task into respective queue, this may block
             pushTaskToSender(nextDispatch,task);
             //advance dispatch number, wraps back to 1 after size
             nextDispatch++;
@@ -64,6 +74,11 @@ void * dispatchFileTasksIntoSender(){
     pthread_exit((int *)EXIT_SUCCESS);
 }
 
+/**
+ * @brief Emits chunks toward workers in a non-blocking manner
+ * 
+ * @return void* 
+ */
 void* emitTasksToWorkers(){
     //curently employed entities
     bool working[groupSize-1];
@@ -72,18 +87,22 @@ void* emitTasksToWorkers(){
     //request handler objects, last chunk received
     int requests[groupSize-1];
     Task tasks[groupSize-1];
+
+    //init data for this function
     for (int i=0;i<groupSize-1;i++){
         requests[i] = MPI_REQUEST_NULL;
         tasks[i].order = 0;
         working[i] = true;
     }
 
+    //used to signal workers that no more tasks are coming
     int killSignal = 0;
     
     //only ever used to receive waitAny result
     int lastFinish;
 
     int testStatus;
+
     while (true){
         
         for (int i=0;i<groupSize-1;i++){
@@ -96,18 +115,18 @@ void* emitTasksToWorkers(){
                     free(tasks[i].matrix);
                 //try to get a new task
                 if (!getTask(i,tasks+i)){
-                    tasks[i].order = 0; //avoid free in future loops
+                    tasks[i].order = 0; //task get failed, we use this to avoid free in future loops
                 }
 
                 else{
-                    //is a kill request
+                    //is a kill request, signal worker to stop and mark this worker as dead
                     if (tasks[i].order == -1){
                         currentlyWorking--;
                         MPI_Isend(&killSignal,1,MPI_INT,i+1,0,MPI_COMM_WORLD,requests+i);
                         working[i] =false;
                         continue;
                     }
-                    //send this request
+                    //send this task to worker in a non-blocking manner
                     MPI_Isend( &tasks[i].order , 1 , MPI_INT , i+1, 0 , MPI_COMM_WORLD,requests+i);
                     MPI_Request_free(requests+i);
                     MPI_Isend( tasks[i].matrix , tasks[i].order*tasks[i].order , MPI_DOUBLE , i+1 , 0 , MPI_COMM_WORLD,requests+i);
@@ -116,18 +135,19 @@ void* emitTasksToWorkers(){
             }
            
     }
+
     if (currentlyWorking>0){
-        //wait for any chunks to be available, a worker to be available
+        //wait for any chunks to be available and for a worker to be available
         awaitFurtherInfo();
         MPI_Waitany(groupSize-1,requests,&lastFinish,MPI_STATUS_IGNORE);
     }
 
     else
         break;
-    //wait for all the kill messages to have been sent
-
+   
     }
-    
+
+     //wait for all the kill messages to have been sent
     for (int i = 0; i < groupSize-1; i++)
         // signal that there's nothing left for workers to process
         MPI_Wait(&requests[i], MPI_STATUS_IGNORE);
@@ -135,6 +155,11 @@ void* emitTasksToWorkers(){
     pthread_exit((int *)EXIT_SUCCESS);
 }
 
+/**
+ * @brief Merges file chunks read by workers into their results structure
+ * 
+ * @return void* 
+ */
 void * mergeChunks(){
     int nextReceive = 1;
     //for each file

@@ -1,9 +1,9 @@
 /**
- * @file sharedRegion.h (interface file)
+ * @file dispatcher.h (interface file)
  *
- * @brief Problem name: multithreaded determinant calculation
+ * @brief Problem name: multiprocess determinant calculation
  *
- * Shared region acessed by many threads at the same time.
+ * Defines dispatcher thread methods
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
