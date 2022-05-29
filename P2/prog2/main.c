@@ -243,7 +243,7 @@ int main(int argc, char **args)
         //wait for sender
         if (pthread_join(sender, NULL) != 0)
         {
-            perror("Error on waiting for sneder thread");
+            perror("Error on waiting for sender thread");
             exit(EXIT_FAILURE);
         }
 
