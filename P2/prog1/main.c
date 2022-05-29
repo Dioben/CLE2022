@@ -1,12 +1,12 @@
 /**
  * @file main.c (implementation file)
  *
- * @brief Problem name: multiprocess word count
- *
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
  */
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,10 +23,9 @@
 /**
  * @brief Struct containing the command line argument values.
  *
- * "status" - if the file was called correctly.
- * "fileCount" - count of the files given.
- * "fileNames" - array of file names given.
-
+ * @param status if the file was called correctly.
+ * @param fileCount count of the files given.
+ * @param fileNames array of file names given.
  */
 typedef struct CMDArgs
 {
@@ -36,9 +35,9 @@ typedef struct CMDArgs
 } CMDArgs;
 
 /**
- * \brief Prints correct usage of this file
+ * @brief Prints correct usage of this file.
  *
- * \param cmdName name of the file
+ * @param cmdName name of the file
  */
 static void printUsage(char *cmdName)
 {
@@ -118,11 +117,10 @@ CMDArgs parseCMD(int argc, char *args[])
 }
 
 /**
- * @brief Prints program results
+ * @brief Prints program results.
  *
  * @param fileNames names of processed files
- * @param fileCount how many files were processes
- * @param results result struct array
+ * @param fileCount how many files were processed
  */
 static void printResults(char **fileNames, int fileCount)
 {
@@ -137,7 +135,10 @@ static void printResults(char **fileNames, int fileCount)
 /**
  * @brief Main thread.
  *
- * Its role is generating the worker threads, waiting for their termination, and printing the end result.
+ * Determines whether process is a worker or dispatcher and performs associated tasks
+ * Dispatchers are multi-threaded and output results
+ * Dispatcher threads include a file reader, a sending component, and a results merger
+ * Worker performs tasks until it receives an exit signal
  *
  * @param argc argument count
  * @param args argument array
@@ -145,14 +146,11 @@ static void printResults(char **fileNames, int fileCount)
  */
 int main(int argc, char **args)
 {
-
     int rank, size;
 
     // MPI threading support afforded to us
     int provided;
-
     MPI_Init_thread(&argc, &args, MPI_THREAD_MULTIPLE, &provided);
-
     if (provided < MPI_THREAD_MULTIPLE)
     {
         printf("The threading support level is lesser than demanded.\n");
@@ -169,25 +167,23 @@ int main(int argc, char **args)
         exit(EXIT_FAILURE);
     }
 
-    if (rank == 0)
-    { // dispatcher
+    if (rank == 0) // dispatcher
+    {
         CMDArgs cmdArgs = parseCMD(argc, args);
         if (cmdArgs.status == EXIT_FAILURE)
         {
             int stop = 0;
             for (int i = 1; i < size; i++)
-                // signal that there's nothing left to process
+                // signal to workers that there's nothing left to process
                 MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
             MPI_Finalize();
             return EXIT_FAILURE;
         }
-        int fileCount = cmdArgs.fileCount;
-        char **fileNames = cmdArgs.fileNames;
 
         struct timespec start, finish;              // time measurement
         clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
-        initSharedRegion(fileCount, fileNames, size, 10);
+        initSharedRegion(cmdArgs.fileCount, cmdArgs.fileNames, size, 10);
 
         // create reader thread
         pthread_t reader;
@@ -228,9 +224,10 @@ int main(int argc, char **args)
         if (pthread_create(&merger, NULL, mergeChunks, NULL) != 0)
         {
             perror("Error on creating merger");
-            MPI_Finalize();
+            
             free(cmdArgs.fileNames);
             freeSharedRegion();
+            MPI_Finalize();
             exit(EXIT_FAILURE);
         }
 
@@ -262,7 +259,7 @@ int main(int argc, char **args)
         free(cmdArgs.fileNames);
         freeSharedRegion();
     }
-    else
+    else // worker
     {
         whileTasksWorkAndSendResult();
     }
