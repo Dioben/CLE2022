@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multithreaded dispatcher for determinant calculation
  *
- * Shared region acessed by dispatcher and merger threads at the same time.
+ * Shared region acessed by dispatcher, sender, and merger threads at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -17,8 +17,8 @@
 /**
  * @brief Struct containing the results calculated from a file.
  *
- * "marixCount" - number of matrices in the file.
- * "determinants" - array with the determinant of all matrices.
+ * @param marixCount - number of matrices in the file.
+ * @param determinants - array with the determinant of all matrices.
  */
 typedef struct Result
 {
@@ -26,6 +26,12 @@ typedef struct Result
     double *determinants;
 } Result;
 
+/**
+ * @brief Structure relative to a single task
+ * 
+ * @param order size of matrix
+ * @param matrix pointer to matrix array of size order*order
+ */
 typedef struct Task
 {
    int order;

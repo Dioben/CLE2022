@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multithreaded dispatcher for determinant calculation
  *
- * Shared region acessed by dispatcher and merger at the same time.
+ * Shared region acessed by dispatcher,sender, and merger at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -85,6 +85,8 @@ static void throwThreadError(int error, char *string)
  *
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
+ * @param size total process count
+ * @param _fifoSize number of tasks that can be queued up for each worker
  */
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int size, int _fifoSize)
 {
@@ -157,7 +159,7 @@ void initResult(int matrixCount)
         throwThreadError(status, "Error on initResult() new result signal");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on initResult() unlock");
 }
 
 /**
@@ -169,15 +171,17 @@ void initResult(int matrixCount)
  */
 Result* getResultToUpdate(int idx)
 {
-    int status;//TODO: WHAT IF IDX TOO BIG
+    if (idx>=totalFileCount)
+       return NULL;
 
+    int status;
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() lock");
 
     //wait for result initialization
     while(idx>initializedResults)
         if ((status = pthread_cond_wait(&resultInitialized, &resultsAccess)) != 0)
-            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+            throwThreadError(status, "Error on getResultToUpdate() result initialization wait");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() unlock");
@@ -207,6 +211,7 @@ Result *getResults()
 
 /**
  * @brief Pushes a chunk to a given worker's queue
+ * Notifies anyone inside awaitFurtherInfo
  * 
  * @param worker rank of worker chunk is meant for
  * @param task task that worker must perform
@@ -216,18 +221,18 @@ void pushTaskToSender(int worker,Task task){
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on putTask() lock");
+        throwThreadError(status, "Error on pushTaskToSender() lock");
 
     while (full[worker])
         if ((status = pthread_cond_wait(&fifoFull[worker], &fifoAccess[worker])) != 0)
-                throwThreadError(status, "Error on getTask() fifoEmpty wait");
+                throwThreadError(status, "Error on pushTaskToSender() fifoFull wait");
     
     taskFIFO[worker][ii[worker]] = task;
     ii[worker] = (ii[worker] + 1) % fifoSize;
     full[worker] = (ii[worker] == ri[worker]);
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on putTask() unlock");
+        throwThreadError(status, "Error on pushTaskToSender() unlock");
 
 
     //notify that there's new content
@@ -252,7 +257,7 @@ bool getTask(int worker, Task *task){
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on putTask() lock");
+        throwThreadError(status, "Error on getTask() lock");
     // if not empty
     if (!(ii[worker] == ri[worker] && !full[worker]))
     {
@@ -264,7 +269,7 @@ bool getTask(int worker, Task *task){
         full[worker] = false;
 
         if ((status = pthread_cond_signal(&fifoFull[worker])) != 0)
-            throwThreadError(status, "Error on putTask() fifoEmpty signal");
+            throwThreadError(status, "Error on getTask() fifoFull signal");
     }
     else
     {
@@ -272,7 +277,7 @@ bool getTask(int worker, Task *task){
     }
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on putTask() unlock");
+        throwThreadError(status, "Error on getTask() unlock");
     
     return val;
 }
@@ -310,7 +315,7 @@ void awaitFurtherInfo()
     if (isEmpty)
     {
         if ((status = pthread_cond_wait(&fifoEmpty, &awaitAccess)) != 0)
-            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+            throwThreadError(status, "Error on awaitFurtherInfo() fifoEmpty wait");
     }
 
      if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
