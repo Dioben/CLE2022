@@ -111,7 +111,7 @@ void* emitTasksToWorkers(){
             if(working[i] && testStatus){
                 //worker is ready
                 //clear out last task
-                if (tasks[i].order>=0)
+                if (tasks[i].order>0)
                     free(tasks[i].matrix);
                 //try to get a new task
                 if (!getTask(i,tasks+i)){

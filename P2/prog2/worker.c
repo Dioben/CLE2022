@@ -125,5 +125,5 @@ void whileTasksWorkAndSendResult()
 
     if (currentMax>0)
         free(matrix);
-
+        
 }

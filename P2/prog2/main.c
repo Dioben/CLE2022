@@ -251,6 +251,13 @@ int main(int argc, char **args)
             exit(EXIT_FAILURE);
         }
 
+        //wait for reader
+        if (pthread_join(reader, NULL) != 0)
+        {
+            perror("Error on waiting for reader thread");
+            exit(EXIT_FAILURE);
+        }
+
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
         printResults(cmdArgs.fileNames,cmdArgs.fileCount);
         printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
