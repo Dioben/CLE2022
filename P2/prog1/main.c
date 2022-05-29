@@ -14,9 +14,11 @@
 #include <libgen.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "worker.h"
 #include "dispatcher.h"
+#include "sharedRegion.h"
 
 /**
  * @brief Struct containing the command line argument values.
@@ -122,7 +124,8 @@ CMDArgs parseCMD(int argc, char *args[])
  * @param fileCount how many files were processes
  * @param results result struct array
  */
-static void printResults(char** fileNames, int fileCount, Result* results){
+static void printResults(char** fileNames, int fileCount){
+    Result* results = getResults();
     printf("%-30s %15s %21s %21s\n", "File name", "Word count", "Starting with vowel", "Ending with consonant");
     for (int i = 0; i < fileCount; i++)
     {
@@ -144,7 +147,13 @@ int main(int argc, char **args)
 
     int rank, size;
 
-    MPI_Init(&argc, &args);
+    int provided;
+    MPI_Init_thread(&argc, &args, MPI_THREAD_MULTIPLE, &provided);
+    if (provided < MPI_THREAD_MULTIPLE) {
+        printf("The threading support level is lesser than demanded.\n");
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -172,31 +181,50 @@ int main(int argc, char **args)
 
         struct timespec start, finish;              // time measurement
         clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
-        Result *results = malloc(sizeof(Result) * fileCount);
-        
-        int i;
-        int nextDispatch = 1; //keep track of who is targeted next
-        
-        for (i = 0; i < fileCount; i++)
-        {   //initialize results object, read + dispatch work chunks
-            results[i].chunks = 0;
-            results[i].consonantEndCount = 0;
-            results[i].vowelStartCount = 0;
-            results[i].wordCount = 0;
-            nextDispatch = dispatchFileTasksRoundRobin(fileNames[i],nextDispatch,size,&results[i]);
-        }
-        for (int i = 1; i < size; i++)
-            // signal that there's nothing left to process
-            MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
-        mergeChunks(size,results,fileCount);
+        initSharedRegion(fileCount, fileNames,size);
+
+        //create dispatcher thread
+        pthread_t dispatcher;
+        if (pthread_create(&dispatcher, NULL, dispatchFileTasksRoundRobin, NULL) != 0)
+            {
+            perror("Error on creating dispatcher");
+
+            int stop = 0;
+            for (int i = 1; i < size; i++)
+                // signal that there's nothing left to process
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
+
+            free(cmdArgs.fileNames);
+            freeSharedRegion();
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+
+        //create merger thread
+        pthread_t merger;
+        if (pthread_create(&merger, NULL, mergeChunks, NULL) != 0)
+            {
+            perror("Error on creating merger");
+            MPI_Finalize();
+            free(cmdArgs.fileNames);
+            freeSharedRegion();
+            exit(EXIT_FAILURE);
+        }
+
+        //wait for merger
+        if (pthread_join(merger, NULL) != 0)
+        {
+            perror("Error on waiting for merger thread");
+            exit(EXIT_FAILURE);
+        }
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-        printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
+        printResults(cmdArgs.fileNames,cmdArgs.fileCount);
         printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
         
         free(cmdArgs.fileNames);
-        free(results);
+        freeSharedRegion();
     }
     else
     {

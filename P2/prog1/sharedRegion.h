@@ -1,0 +1,101 @@
+/**
+ * @file sharedRegion.h (interface file)
+ *
+ * @brief Problem name: multithreaded dispatcher for determinant calculation
+ *
+ * Shared region acessed by dispatcher and merger threads at the same time.
+ *
+ * @author Pedro Casimiro, nmec: 93179
+ * @author Diogo Bento, nmec: 93391
+ */
+
+#ifndef SHARED_REGION_H_
+#define SHARED_REGION_H_
+
+#include <stdbool.h>
+
+
+/**
+ * @brief Struct containing the results calculated from a file.
+ *
+ * "matrixCount" - number of matrices in the file.
+ * "determinants" - array with the determinant of all matrices.
+ */
+typedef struct Result
+{
+    int chunks;
+    int vowelStartCount;
+    int consonantEndCount;
+    int wordCount;
+} Result;
+
+/**
+ * @brief Struct containing the data required for a worker to work on a task.
+ *
+ * "byteCount" - number of bytes read from the file.
+ * "bytes" - array with the bytes read from the file.
+ */
+typedef struct Task
+{
+    int byteCount;
+    char *bytes;
+} Task;
+
+/** @brief Number of files to be processed. */
+extern int totalFileCount;
+
+/** @brief Array with the file names of all files. */
+extern char **files;
+
+/** @brief Total process count. */
+extern int groupSize;
+/**
+ * @brief Initializes the shared region.
+ *
+ * Needs to be called before anything else in this file.
+ *
+ * @param _totalFileCount number of files to be processed
+ * @param _files array with the file names of all files
+ * @param workers number of available worker processes
+ */
+extern void initSharedRegion(int _totalFileCount, char *_files[], int workers);
+
+/**
+ * @brief Frees all memory allocated during initialization of the shared region or the results.
+ *
+ * Should be called after the shared region has stopped being used.
+ */
+extern void freeSharedRegion();
+
+
+/**
+ * @brief Initializes the result of a file.
+ *
+ * @param matrixCount number of matrices in the file
+ */
+extern void initResult();
+
+
+/**
+ * @brief Gets the results of all files.
+ *
+ * @return Result struct array with all the results
+ */
+extern Result *getResults();
+
+/**
+ * @brief Allows merger to get a result object, will block until result at index has been initialized
+ *
+ * @param fileIndex index of the file
+ * @param matrixIndex index of the matrix in the file
+ * @param determinant determinant of the matrix
+ */
+extern Result* getResultToUpdate(int idx);
+
+void incrementChunks(int fileIndex);
+
+bool hasMoreChunks(int fileIndex, int currentChunks);
+
+void finishedReading();
+
+#endif

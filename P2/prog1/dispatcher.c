@@ -16,9 +16,11 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include "dispatcher.h"
 #include "utfUtils.h"
+#include "sharedRegion.h"
 
 /**
  * @brief Reads a chunk from a file stream into a byte array.
@@ -135,56 +137,68 @@ static Task readBytes(FILE *file)
 
 
 
-int dispatchFileTasksRoundRobin(char* filename,int nextDispatch,int size, Result* result){
-    FILE *file = fopen(filename, "rb");
-    if (file == NULL){
-        return nextDispatch;
-    }
-
-
-    Task task;
-    
-    while(true){
-         //get chunk
-        task = readBytes(file);
-        //exit if no chunk
-        if (task.byteCount == 0) {
-            free(task.bytes);
-            break;
+void *dispatchFileTasksRoundRobin(){
+    int nextDispatch = 1;
+    for (int fIdx=0;fIdx<totalFileCount;fIdx++){
+        char * filename = files[fIdx];
+        FILE *file = fopen(filename, "rb");
+        initResult();
+        if (file == NULL){
+            continue;
         }
-         (*result).chunks++;
-        //send size of next chunk, chunk
-        MPI_Send(&(task.byteCount) , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);    
-        MPI_Send(task.bytes, task.byteCount , MPI_CHAR , nextDispatch , 0 , MPI_COMM_WORLD);
-        free(task.bytes);
-        //advance dispatch number, wraps back to 1 after size
-        nextDispatch++;
-        if (nextDispatch>=size)
-            nextDispatch=1;
-    }
 
-return nextDispatch;
+
+        Task task;
+        
+        while(true){
+            //get chunk
+            task = readBytes(file);
+            //exit if no chunk
+            if (task.byteCount == 0) {
+                free(task.bytes);
+                break;
+            }
+            incrementChunks(fIdx);
+            //send size of next chunk, chunk
+            MPI_Send(&(task.byteCount) , 1 , MPI_INT , nextDispatch , 0 , MPI_COMM_WORLD);    
+            MPI_Send(task.bytes, task.byteCount , MPI_CHAR , nextDispatch , 0 , MPI_COMM_WORLD);
+            free(task.bytes);
+            //advance dispatch number, wraps back to 1 after size
+            nextDispatch++;
+            if (nextDispatch>=groupSize)
+                nextDispatch=1;
+        }
+    }
+    finishedReading();
+    int stop = 0;
+    for (int i = 1; i < groupSize; i++)
+        // signal that there's nothing left for workers to process
+        MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+    
+    pthread_exit((int *)EXIT_SUCCESS);
 }
 
-void mergeChunks(int size, Result* results, int resultCount){
+void *mergeChunks(){
     int nextReceive = 1;
     int read; //move data here
     //for each file
-    for(int i=0;i<resultCount;i++){
-
-        //for each determinant
-        for (int k=0;k<results[i].chunks;k++){
+    for(int i=0;i<totalFileCount;i++){
+        Result* res = getResultToUpdate(i); //blocks until this results object has been initialized
+        int currentChunk = 0;
+        while (hasMoreChunks(i, currentChunk++)) {
             //get wc,start vowel, end consonant
             MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            results[i].wordCount+=read;
+            (*res).wordCount+=read;
             MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            results[i].vowelStartCount+=read;
+            (*res).vowelStartCount+=read;
             MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            results[i].consonantEndCount+=read;
+            (*res).consonantEndCount+=read;
             //avance dispatch
             nextReceive++;
-            if(nextReceive>=size)
+            if(nextReceive>=groupSize)
                 nextReceive=1;
         }
     }
+    
+    pthread_exit((int *)EXIT_SUCCESS);
 }

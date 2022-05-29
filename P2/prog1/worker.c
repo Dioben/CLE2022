@@ -19,6 +19,7 @@
 #include "worker.h"
 #include "dispatcher.h"
 #include "utfUtils.h"
+#include "sharedRegion.h"
 
 
 /**
@@ -136,7 +137,7 @@ void whileTasksWorkAndSendResult()
                 chunk = malloc(sizeof(char) *size);
             }//matrix has been allocated
             else{
-                chunk = realloc(chunk,size);
+                chunk = realloc(chunk,sizeof(char) *size);
             }
             currentMax = size;
         }
