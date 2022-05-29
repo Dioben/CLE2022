@@ -177,7 +177,7 @@ int main(int argc, char **args)
                 // signal to workers that there's nothing left to process
                 MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
             MPI_Finalize();
-            return EXIT_FAILURE;
+            exit(EXIT_FAILURE);
         }
 
         struct timespec start, finish;              // time measurement
@@ -224,6 +224,11 @@ int main(int argc, char **args)
         if (pthread_create(&merger, NULL, mergeChunks, NULL) != 0)
         {
             perror("Error on creating merger");
+
+            int stop = 0;
+            for (int i = 1; i < size; i++)
+                // signal that there's nothing left to process
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
             
             free(cmdArgs.fileNames);
             freeSharedRegion();
