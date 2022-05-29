@@ -1,7 +1,7 @@
 /**
  * @file worker.c (implementation file)
  *
- * @brief Problem name: multiprocess determinant calculation
+ * @brief Problem name: multiprocess determinant calculation with multithreaded dispatcher
  *
  * Contains implementation of the worker process.
  *
@@ -77,51 +77,52 @@ static double calculateDeterminant(int order, double *matrix) // TODO: something
 }
 
 /**
- * @brief Solves matrix determinants as long as tasks are provided
- * Receives an int for order followed by order*order doubles
- * If order is less than 1 this function exits
+ * @brief Worker process loop.
  *
+ * Receives tasks via send and returns results from tasks.
  */
 void whileTasksWorkAndSendResult()
 {
-    // matrix size, how much memory we've allocated, matrix itself,result of calculus
-    int size;
-    int currentMax = 0;
+    int matrixOrder;
     double *matrix;
+    int currentMax = 0; // how much memory we've allocated to the matrix
 
     MPI_Request req = MPI_REQUEST_NULL;
     while (true)
     {
         // receive next task matrix size
-        MPI_Recv(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&matrixOrder, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
         // signal to stop working
-        if (size < 1)
+        if (matrixOrder < 1)
         {
-            MPI_Wait(&req, MPI_STATUS_IGNORE); // wait for last response to be read before shutdown
+            // wait for last response to be read before shutdown
+            MPI_Wait(&req, MPI_STATUS_IGNORE);
             break;
         }
 
         // our current matrix buffer isnt large enough
-        if (size > currentMax)
+        if (matrixOrder > currentMax)
         {
-            // matrix has not been allocated yet
+            // if matrix has not been allocated yet
             if (currentMax == 0)
-            {
-                matrix = malloc(sizeof(double) * size * size);
-            } // matrix has been allocated, must expand
+                matrix = malloc(sizeof(double) * matrixOrder * matrixOrder);
             else
-            {
-                matrix = realloc(matrix, sizeof(double) * size * size);
-            }
-            currentMax = size;
+                matrix = realloc(matrix, sizeof(double) * matrixOrder * matrixOrder);
+
+            currentMax = matrixOrder;
         }
+
         // receive matrix
-        MPI_Recv(matrix, size * size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(matrix, matrixOrder * matrixOrder, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
         // calculate result
-        double determinant = calculateDeterminant(size, matrix);
+        double determinant = calculateDeterminant(matrixOrder, matrix);
+
         // wait for last send to cleared
         if (req != MPI_REQUEST_NULL)
             MPI_Wait(&req, MPI_STATUS_IGNORE);
+
         // send back result
         MPI_Isend(&determinant, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &req);
     }

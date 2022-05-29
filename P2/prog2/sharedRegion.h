@@ -17,8 +17,8 @@
 /**
  * @brief Struct containing the results calculated from a file.
  *
- * @param marixCount - number of matrices in the file.
- * @param determinants - array with the determinant of all matrices.
+ * @param marixCount number of matrices in the file.
+ * @param determinants array with the determinant of all matrices.
  */
 typedef struct Result
 {
@@ -27,7 +27,7 @@ typedef struct Result
 } Result;
 
 /**
- * @brief Structure relative to a single task
+ * @brief Struct relative to a single task.
  *
  * @param order size of matrix
  * @param matrix pointer to matrix array of size order*order
@@ -44,8 +44,9 @@ extern int totalFileCount;
 /** @brief Array with the file names of all files. */
 extern char **files;
 
-/** @brief Total process count. */
-extern int groupSize;
+/** @brief Total process count. Includes rank 0. */
+extern int processCount;
+
 /**
  * @brief Initializes the shared region.
  *
@@ -53,9 +54,10 @@ extern int groupSize;
  *
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
- * @param workers number of available worker processes
+ * @param _processCount total process count
+ * @param _fifoSize number of tasks that can be queued up for each worker
  */
-extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, int _fifoSize);
+extern void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _processCount, int _fifoSize);
 
 /**
  * @brief Frees all memory allocated during initialization of the shared region or the results.
@@ -65,11 +67,18 @@ extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, i
 extern void freeSharedRegion();
 
 /**
- * @brief Initializes the result of a file.
+ * @brief Initializes the result of the next file.
  *
  * @param matrixCount number of matrices in the file
  */
 extern void initResult(int matrixCount);
+
+/**
+ * @brief Allows merger to get a result object, will block until result at index has been initialized.
+ *
+ * @param fileIndex index of the file
+ */
+extern Result *getResultToUpdate(int fileIndex);
 
 /**
  * @brief Gets the results of all files.
@@ -79,16 +88,9 @@ extern void initResult(int matrixCount);
 extern Result *getResults();
 
 /**
- * @brief Allows merger to get a result object, will block until result at index has been initialized
+ * @brief Pushes a chunk to a given worker's queue.
  *
- * @param fileIndex index of the file
- * @param matrixIndex index of the matrix in the file
- * @param determinant determinant of the matrix
- */
-extern Result *getResultToUpdate(int idx);
-
-/**
- * @brief Pushes a chunk to a given worker's queue
+ * Notifies anyone inside awaitFurtherTasks.
  *
  * @param worker rank of worker chunk is meant for
  * @param task task that worker must perform
@@ -98,15 +100,15 @@ extern void pushTaskToSender(int worker, Task task);
 /**
  * @brief Get a task for a given worker
  *
- * @param worker worker rank
+ * @param worker worker rank minus 1
  * @param task a task meant for the worker
  * @return if getTask was successful (fifo was not empty)
  */
 extern bool getTask(int worker, Task *task);
 
 /**
- * @brief Block until there is pending data
- *
+ * @brief Block until there are pending tasks.
  */
-extern void awaitFurtherInfo();
+extern void awaitFurtherTasks();
+
 #endif

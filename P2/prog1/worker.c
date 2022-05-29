@@ -17,9 +17,8 @@
 #include <errno.h>
 
 #include "worker.h"
-#include "dispatcher.h"
 #include "utfUtils.h"
-#include "sharedRegion.h"
+#include "sharedRegion.h" // only used for the structs
 
 /**
  * @brief Reads an UTF-8 character from a byte array.
@@ -130,7 +129,8 @@ void whileTasksWorkAndSendResult()
         // signal to stop working
         if (chunkSize < 1)
         {
-            MPI_Wait(&req, MPI_STATUS_IGNORE); // wait for last response to be read before shutdown
+            // wait for last response to be read before shutdown
+            MPI_Wait(&req, MPI_STATUS_IGNORE);
             break;
         }
 
@@ -145,6 +145,7 @@ void whileTasksWorkAndSendResult()
 
             currentMax = chunkSize;
         }
+
         // receive chunk
         MPI_Recv(chunk, chunkSize, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         result = parseTask(chunkSize, chunk);

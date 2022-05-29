@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
- * Shared region acessed by dispatcher and merger threads at the same time.
+ * Shared region acessed by reader, sender, and merger at the same time.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -89,7 +89,7 @@ static void throwThreadError(int error, char *string)
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
  * @param _processCount total process count
- * @param _fifoSize max number of items the task FIFOs can contain
+ * @param _fifoSize number of tasks that can be queued up for each worker
  */
 void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _processCount, int _fifoSize)
 {
@@ -144,7 +144,7 @@ void freeSharedRegion()
 }
 
 /**
- * @brief Initializes the result of the next file index.
+ * @brief Initializes the result of the next file.
  */
 void initResult()
 {
@@ -230,8 +230,7 @@ Result *getResultToUpdate(int fileIndex)
  *
  * @param fileIndex index of the file
  * @param currentChunk last chunk to be used
- * @return true if there are more chunks of the file available to be used
- * @return false if all chunks of the file have been used
+ * @return if there are more chunks of the file to be used
  */
 bool hasMoreChunks(int fileIndex, int currentChunk)
 {
@@ -319,7 +318,8 @@ void pushTaskToSender(int worker, Task task)
  * @brief Get a task for a given worker
  *
  * @param worker worker rank minus 1
- * @return Task* a task meant for the worker
+ * @param task a task meant for the worker
+ * @return if getTask was successful (fifo was not empty)
  */
 bool getTask(int worker, Task *task)
 {

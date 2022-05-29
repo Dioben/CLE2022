@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
- * Contains implementation of the dispatcher process.
+ * Contains implementation of the dispatcher process threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -134,7 +134,9 @@ static Task readBytes(FILE *file)
 }
 
 /**
- * @brief Thread that parses a file into chunks, emits them towards the publisher.
+ * @brief Thread that reads file contents into local buffers so they can be sent to workers in a round-robin fashion.
+ *
+ * Will block when pushing chunks if it builds a significant lead over sender.
  *
  * @return pointer to the identification of this thread
  */
@@ -145,6 +147,8 @@ void *dispatchFileTasksIntoSender()
     {
         char *filename = files[fIdx];
         FILE *file = fopen(filename, "rb");
+
+        // init result struct
         initResult();
 
         // if file is a dud
@@ -165,6 +169,7 @@ void *dispatchFileTasksIntoSender()
                 break;
             }
 
+            // inform shared region that an extra chunk was read
             incrementChunks(fIdx);
 
             // send task into respective queue, this may block
@@ -176,6 +181,8 @@ void *dispatchFileTasksIntoSender()
                 nextDispatch = 1;
         }
     }
+
+    // inform shared region that all files have been read
     finishedReading();
 
     // send signal to stop workers
@@ -289,6 +296,7 @@ void *mergeChunks()
         Result *res = getResultToUpdate(i);
 
         int currentChunk = 0;
+        // while file has chunks
         while (hasMoreChunks(i, currentChunk++))
         {
             // get word count, start vowel count, end consonant count
@@ -297,7 +305,7 @@ void *mergeChunks()
             (*res).vowelStartCount += readArr[1];
             (*res).consonantEndCount += readArr[2];
 
-            // advance dispatch number, wraps back to 1 after processCount
+            // advance receive number, wraps back to 1 after processCount
             nextReceive++;
             if (nextReceive >= processCount)
                 nextReceive = 1;

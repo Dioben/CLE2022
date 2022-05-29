@@ -3,7 +3,7 @@
  *
  * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
- * Contains implementation of the dispatcher process.
+ * Contains implementation of the dispatcher process threads.
  *
  * @author Pedro Casimiro, nmec: 93179
  * @author Diogo Bento, nmec: 93391
@@ -13,8 +13,10 @@
 #define DISPATCHER_H_
 
 /**
- * @brief Thread that parses a file into chunks, emits them towards the publisher.
- * 
+ * @brief Thread that reads file contents into local buffers so they can be sent to workers in a round-robin fashion.
+ *
+ * Will block when pushing chunks if it builds a significant lead over sender.
+ *
  * @return pointer to the identification of this thread
  */
 extern void *dispatchFileTasksIntoSender();
