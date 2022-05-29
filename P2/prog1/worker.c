@@ -127,9 +127,6 @@ void whileTasksWorkAndSendResult()
             MPI_Wait(&req,MPI_STATUS_IGNORE); //wait for last response to be read before shutdown
             break;
         }
-        //free last request's handler if not in first loop
-        if (req !=MPI_REQUEST_NULL)
-            MPI_Request_free(&req);
 
         //our current chunk buffer isnt large enough
         if (size>currentMax){
@@ -145,6 +142,10 @@ void whileTasksWorkAndSendResult()
         //receive chunk
         MPI_Recv(chunk,size,MPI_CHAR,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         result = parseTask(size,chunk);
+
+        //wait for last send to cleared
+        if (req !=MPI_REQUEST_NULL)
+            MPI_Wait(&req,MPI_STATUS_IGNORE);
         sendArray[0] = result.wordCount;
         sendArray[1] = result.vowelStartCount;
         sendArray[2] = result.consonantEndCount;
