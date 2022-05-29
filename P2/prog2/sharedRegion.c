@@ -257,7 +257,7 @@ bool getTask(int worker, Task *task){
     if (!(ii[worker] == ri[worker] && !full[worker]))
     {
         (*task).order = taskFIFO[worker][ri[worker]].order;
-         (*task).matrix = taskFIFO[worker][ri[worker]].matrix;
+        (*task).matrix = taskFIFO[worker][ri[worker]].matrix;
 
 
         ri[worker] = (ri[worker] + 1) % fifoSize;
