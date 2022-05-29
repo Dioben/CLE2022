@@ -100,10 +100,6 @@ void whileTasksWorkAndSendResult()
             break;
         }
 
-        //free last request's handler if not in first loop
-        if (req !=MPI_REQUEST_NULL)
-            MPI_Request_free(&req);
-
         //our current matrix buffer isnt large enough
         if (size>currentMax){
             //matrix has not been allocated yet
@@ -119,6 +115,9 @@ void whileTasksWorkAndSendResult()
         MPI_Recv(matrix,size*size,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         //calculate result
         double determinant = calculateDeterminant(size,matrix);
+        //wait for last send to cleared
+        if (req !=MPI_REQUEST_NULL)
+            MPI_Wait(&req,MPI_STATUS_IGNORE);
         //send back result
         MPI_Isend( &determinant , 1 , MPI_DOUBLE , 0 , 0 , MPI_COMM_WORLD , &req);
     }
