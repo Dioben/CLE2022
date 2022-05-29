@@ -119,21 +119,22 @@ CMDArgs parseCMD(int argc, char *args[])
 
 /**
  * @brief Prints program results
- * 
+ *
  * @param fileNames names of processed files
  * @param fileCount how many files were processes
  * @param results result struct array
  */
-static void printResults(char** fileNames, int fileCount){
-        Result* results = getResults();
-        printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
-        for (int i = 0; i < fileCount; i++)
+static void printResults(char **fileNames, int fileCount)
+{
+    Result *results = getResults();
+    printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
+    for (int i = 0; i < fileCount; i++)
+    {
+        for (int j = 0; j < results[i].matrixCount; j++)
         {
-            for (int j = 0; j < results[i].matrixCount; j++)
-            {
-                printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
-            }
+            printf("%-50s %6d %30.5e\n", fileNames[i], j + 1, results[i].determinants[j]);
         }
+    }
 }
 
 /**
@@ -152,13 +153,14 @@ int main(int argc, char **args)
 {
 
     int rank, size;
-    
-    //MPI threading support afforded to us
+
+    // MPI threading support afforded to us
     int provided;
 
     MPI_Init_thread(&argc, &args, MPI_THREAD_MULTIPLE, &provided);
-    
-    if (provided < MPI_THREAD_MULTIPLE) {
+
+    if (provided < MPI_THREAD_MULTIPLE)
+    {
         printf("The threading support level is lesser than demanded.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
@@ -182,7 +184,7 @@ int main(int argc, char **args)
             int stop = 0;
             for (int i = 1; i < size; i++)
                 // signal to workers that there's nothing left to process
-                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
             MPI_Finalize();
             return EXIT_FAILURE;
         }
@@ -190,18 +192,18 @@ int main(int argc, char **args)
         struct timespec start, finish;              // time measurement
         clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
-        initSharedRegion(cmdArgs.fileCount, cmdArgs.fileNames,size,10);
-        
-        //create reader thread
+        initSharedRegion(cmdArgs.fileCount, cmdArgs.fileNames, size, 10);
+
+        // create reader thread
         pthread_t reader;
         if (pthread_create(&reader, NULL, dispatchFileTasksIntoSender, NULL) != 0)
-            {
+        {
             perror("Error on creating dispatcher");
 
             int stop = 0;
             for (int i = 1; i < size; i++)
                 // signal that there's nothing left to process
-                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
             free(cmdArgs.fileNames);
             freeSharedRegion();
@@ -209,16 +211,16 @@ int main(int argc, char **args)
             exit(EXIT_FAILURE);
         }
 
-        //create sender thread
+        // create sender thread
         pthread_t sender;
         if (pthread_create(&sender, NULL, emitTasksToWorkers, NULL) != 0)
-            {
+        {
             perror("Error on creating sender");
 
             int stop = 0;
             for (int i = 1; i < size; i++)
                 // signal that there's nothing left to process
-                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD); 
+                MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
             free(cmdArgs.fileNames);
             freeSharedRegion();
@@ -226,32 +228,32 @@ int main(int argc, char **args)
             exit(EXIT_FAILURE);
         }
 
-        //create merger thread
+        // create merger thread
         pthread_t merger;
         if (pthread_create(&merger, NULL, mergeChunks, NULL) != 0)
-            {
+        {
             perror("Error on creating merger");
             MPI_Finalize();
             free(cmdArgs.fileNames);
             freeSharedRegion();
             exit(EXIT_FAILURE);
         }
-        
-        //wait for merger
+
+        // wait for merger
         if (pthread_join(merger, NULL) != 0)
         {
             perror("Error on waiting for merger thread");
             exit(EXIT_FAILURE);
         }
 
-        //wait for sender
+        // wait for sender
         if (pthread_join(sender, NULL) != 0)
         {
             perror("Error on waiting for sender thread");
             exit(EXIT_FAILURE);
         }
 
-        //wait for reader
+        // wait for reader
         if (pthread_join(reader, NULL) != 0)
         {
             perror("Error on waiting for reader thread");
@@ -259,9 +261,9 @@ int main(int argc, char **args)
         }
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-        printResults(cmdArgs.fileNames,cmdArgs.fileCount);
+        printResults(cmdArgs.fileNames, cmdArgs.fileCount);
         printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
-        
+
         free(cmdArgs.fileNames);
         freeSharedRegion();
     }

@@ -28,15 +28,15 @@ typedef struct Result
 
 /**
  * @brief Structure relative to a single task
- * 
+ *
  * @param order size of matrix
  * @param matrix pointer to matrix array of size order*order
  */
 typedef struct Task
 {
-   int order;
-   double *matrix;
-}Task;
+    int order;
+    double *matrix;
+} Task;
 
 /** @brief Number of files to be processed. */
 extern int totalFileCount;
@@ -64,14 +64,12 @@ extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, i
  */
 extern void freeSharedRegion();
 
-
 /**
  * @brief Initializes the result of a file.
  *
  * @param matrixCount number of matrices in the file
  */
 extern void initResult(int matrixCount);
-
 
 /**
  * @brief Gets the results of all files.
@@ -87,19 +85,19 @@ extern Result *getResults();
  * @param matrixIndex index of the matrix in the file
  * @param determinant determinant of the matrix
  */
-extern Result* getResultToUpdate(int idx);
+extern Result *getResultToUpdate(int idx);
 
 /**
  * @brief Pushes a chunk to a given worker's queue
- * 
+ *
  * @param worker rank of worker chunk is meant for
  * @param task task that worker must perform
  */
-extern void pushTaskToSender(int worker,Task task);
+extern void pushTaskToSender(int worker, Task task);
 
 /**
  * @brief Get a task for a given worker
- * 
+ *
  * @param worker worker rank
  * @param task a task meant for the worker
  * @return if getTask was successful (fifo was not empty)
@@ -108,7 +106,7 @@ extern bool getTask(int worker, Task *task);
 
 /**
  * @brief Block until there is pending data
- * 
+ *
  */
 extern void awaitFurtherInfo();
 #endif

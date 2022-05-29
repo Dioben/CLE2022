@@ -14,7 +14,6 @@
 
 #include <stdbool.h>
 
-
 /**
  * @brief Struct containing the results calculated from a file.
  *
@@ -67,14 +66,12 @@ extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, i
  */
 extern void freeSharedRegion();
 
-
 /**
  * @brief Initializes the result of a file.
  *
  * @param matrixCount number of matrices in the file
  */
 extern void initResult();
-
 
 /**
  * @brief Gets the results of all files.
@@ -90,7 +87,7 @@ extern Result *getResults();
  * @param matrixIndex index of the matrix in the file
  * @param determinant determinant of the matrix
  */
-extern Result* getResultToUpdate(int idx);
+extern Result *getResultToUpdate(int idx);
 
 void incrementChunks(int fileIndex);
 
@@ -98,18 +95,17 @@ bool hasMoreChunks(int fileIndex, int currentChunks);
 
 void finishedReading();
 
-
 /**
  * @brief Pushes a chunk to a given worker's queue
- * 
+ *
  * @param worker rank of worker chunk is meant for
  * @param task task that worker must perform
  */
-extern void pushTaskToSender(int worker,Task task);
+extern void pushTaskToSender(int worker, Task task);
 
 /**
  * @brief Get a task for a given worker
- * 
+ *
  * @param worker worker rank
  * @param task a task meant for the worker
  * @return if getTask was successful (fifo was not empty)
@@ -118,7 +114,7 @@ extern bool getTask(int worker, Task *task);
 
 /**
  * @brief Block until there is pending data
- * 
+ *
  */
 extern void awaitFurtherInfo();
 #endif

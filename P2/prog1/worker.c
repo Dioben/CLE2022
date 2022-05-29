@@ -21,7 +21,6 @@
 #include "utfUtils.h"
 #include "sharedRegion.h"
 
-
 /**
  * @brief Reads an UTF-8 character from a byte array.
  *
@@ -61,7 +60,7 @@ int readLetterFromBytes(int *bytesRead, char *bytes)
  * @param task Task struct
  * @return Result struct
  */
-static Result parseTask(int byteCount, char* bytes)
+static Result parseTask(int byteCount, char *bytes)
 {
     Result result = {.vowelStartCount = 0,
                      .consonantEndCount = 0,
@@ -113,47 +112,50 @@ void whileTasksWorkAndSendResult()
     // task size, how much memory we've allocated, task itself,result of calculus
     int size;
     int currentMax = 0;
-    char * chunk;
+    char *chunk;
     Result result;
     int sendArray[3];
-    
+
     MPI_Request req = MPI_REQUEST_NULL;
     while (true)
     {
-        //receive next task chunk size
-        MPI_Recv(&size,1,MPI_INT,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        //signal to stop working
-        if (size<1){
-            MPI_Wait(&req,MPI_STATUS_IGNORE); //wait for last response to be read before shutdown
+        // receive next task chunk size
+        MPI_Recv(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // signal to stop working
+        if (size < 1)
+        {
+            MPI_Wait(&req, MPI_STATUS_IGNORE); // wait for last response to be read before shutdown
             break;
         }
 
-        //our current chunk buffer isnt large enough
-        if (size>currentMax){
-            //matrix has not been allocated yet
-            if (currentMax == 0){
-                chunk = malloc(sizeof(char) *size);
-            }//matrix has been allocated
-            else{
-                chunk = realloc(chunk,sizeof(char) *size);
+        // our current chunk buffer isnt large enough
+        if (size > currentMax)
+        {
+            // matrix has not been allocated yet
+            if (currentMax == 0)
+            {
+                chunk = malloc(sizeof(char) * size);
+            } // matrix has been allocated
+            else
+            {
+                chunk = realloc(chunk, sizeof(char) * size);
             }
             currentMax = size;
         }
-        //receive chunk
-        MPI_Recv(chunk,size,MPI_CHAR,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        result = parseTask(size,chunk);
+        // receive chunk
+        MPI_Recv(chunk, size, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        result = parseTask(size, chunk);
 
-        //wait for last send to cleared
-        if (req !=MPI_REQUEST_NULL)
-            MPI_Wait(&req,MPI_STATUS_IGNORE);
+        // wait for last send to cleared
+        if (req != MPI_REQUEST_NULL)
+            MPI_Wait(&req, MPI_STATUS_IGNORE);
         sendArray[0] = result.wordCount;
         sendArray[1] = result.vowelStartCount;
         sendArray[2] = result.consonantEndCount;
-        //send back result, WC, startVowel , endConsonant
-        MPI_Isend( sendArray , 3 , MPI_INT , 0 , 0 , MPI_COMM_WORLD , &req);
+        // send back result, WC, startVowel , endConsonant
+        MPI_Isend(sendArray, 3, MPI_INT, 0, 0, MPI_COMM_WORLD, &req);
     }
 
-    if (currentMax>0)
+    if (currentMax > 0)
         free(chunk);
-
 }

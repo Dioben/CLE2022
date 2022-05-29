@@ -24,7 +24,6 @@
 /** @brief If byte is a start of an UTF-8 character and implies a 4 byte length character. */
 #define byte3utf8(byte) (byte >= 240 && byte <= 247)
 
-
 /**
  * @brief Returns if UTF-8 character is a bridge character.
  *

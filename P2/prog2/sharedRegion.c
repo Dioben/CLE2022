@@ -88,7 +88,7 @@ static void throwThreadError(int error, char *string)
  * @param size total process count
  * @param _fifoSize number of tasks that can be queued up for each worker
  */
-void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int size, int _fifoSize)
+void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int size, int _fifoSize)
 {
     totalFileCount = _totalFileCount;
     files = _files;
@@ -99,14 +99,15 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
     pthread_cond_init(&resultInitialized, NULL);
     groupSize = size;
     pthread_cond_init(&fifoEmpty, NULL);
-    
-    ii = malloc(sizeof(int) * (groupSize-1));
-    ri = malloc(sizeof(int) * (groupSize-1));
-    full = malloc(sizeof(bool) * (groupSize-1));
-    fifoAccess = malloc(sizeof(pthread_mutex_t) * (groupSize-1));
-    fifoFull = malloc(sizeof(pthread_cond_t) * (groupSize-1));
-    taskFIFO = malloc(sizeof(Task*) * (groupSize-1));
-    for (int i = 0; i < (groupSize-1); i++) {
+
+    ii = malloc(sizeof(int) * (groupSize - 1));
+    ri = malloc(sizeof(int) * (groupSize - 1));
+    full = malloc(sizeof(bool) * (groupSize - 1));
+    fifoAccess = malloc(sizeof(pthread_mutex_t) * (groupSize - 1));
+    fifoFull = malloc(sizeof(pthread_cond_t) * (groupSize - 1));
+    taskFIFO = malloc(sizeof(Task *) * (groupSize - 1));
+    for (int i = 0; i < (groupSize - 1); i++)
+    {
         ii[i] = 0;
         ri[i] = 0;
         full[i] = false;
@@ -124,10 +125,11 @@ void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount],int siz
 void freeSharedRegion()
 {
     for (int i = 0; i < totalFileCount; i++)
-        if (results[i].matrixCount>=0)
+        if (results[i].matrixCount >= 0)
             free(results[i].determinants);
     free(results);
-    for (int i = 0; i < groupSize-1; i++){
+    for (int i = 0; i < groupSize - 1; i++)
+    {
         free(taskFIFO[i]);
     }
     free(taskFIFO);
@@ -152,7 +154,7 @@ void initResult(int matrixCount)
         throwThreadError(status, "Error on initResult() lock");
 
     results[++initializedResults].matrixCount = matrixCount;
-    if (matrixCount>=0)
+    if (matrixCount >= 0)
         results[initializedResults].determinants = malloc(sizeof(double) * matrixCount);
 
     if ((status = pthread_cond_signal(&resultInitialized)) != 0)
@@ -169,17 +171,17 @@ void initResult(int matrixCount)
  * @param matrixIndex index of the matrix in the file
  * @param determinant determinant of the matrix
  */
-Result* getResultToUpdate(int idx)
+Result *getResultToUpdate(int idx)
 {
-    if (idx>=totalFileCount)
-       return NULL;
+    if (idx >= totalFileCount)
+        return NULL;
 
     int status;
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() lock");
 
-    //wait for result initialization
-    while(idx>initializedResults)
+    // wait for result initialization
+    while (idx > initializedResults)
         if ((status = pthread_cond_wait(&resultInitialized, &resultsAccess)) != 0)
             throwThreadError(status, "Error on getResultToUpdate() result initialization wait");
 
@@ -212,11 +214,12 @@ Result *getResults()
 /**
  * @brief Pushes a chunk to a given worker's queue
  * Notifies anyone inside awaitFurtherInfo
- * 
+ *
  * @param worker rank of worker chunk is meant for
  * @param task task that worker must perform
  */
-void pushTaskToSender(int worker,Task task){
+void pushTaskToSender(int worker, Task task)
+{
     worker--; // turns [1,groupSize] to [0,groupSize-1]
     int status;
 
@@ -225,8 +228,8 @@ void pushTaskToSender(int worker,Task task){
 
     while (full[worker])
         if ((status = pthread_cond_wait(&fifoFull[worker], &fifoAccess[worker])) != 0)
-                throwThreadError(status, "Error on pushTaskToSender() fifoFull wait");
-    
+            throwThreadError(status, "Error on pushTaskToSender() fifoFull wait");
+
     taskFIFO[worker][ii[worker]] = task;
     ii[worker] = (ii[worker] + 1) % fifoSize;
     full[worker] = (ii[worker] == ri[worker]);
@@ -234,10 +237,9 @@ void pushTaskToSender(int worker,Task task){
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on pushTaskToSender() unlock");
 
-
-    //notify that there's new content
+    // notify that there's new content
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
-            throwThreadError(status, "Error on pushTaskToSender() notification lock");
+        throwThreadError(status, "Error on pushTaskToSender() notification lock");
 
     if ((status = pthread_cond_signal(&fifoEmpty)) != 0)
         throwThreadError(status, "Error on putTask() fifoEmpty signal");
@@ -248,11 +250,12 @@ void pushTaskToSender(int worker,Task task){
 
 /**
  * @brief Get a task for a given worker
- * 
+ *
  * @param worker worker rank minus 1
  * @return Task* a task meant for the worker
  */
-bool getTask(int worker, Task *task){
+bool getTask(int worker, Task *task)
+{
     bool val = true;
     int status;
 
@@ -263,7 +266,6 @@ bool getTask(int worker, Task *task){
     {
         (*task).order = taskFIFO[worker][ri[worker]].order;
         (*task).matrix = taskFIFO[worker][ri[worker]].matrix;
-
 
         ri[worker] = (ri[worker] + 1) % fifoSize;
         full[worker] = false;
@@ -278,23 +280,22 @@ bool getTask(int worker, Task *task){
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
         throwThreadError(status, "Error on getTask() unlock");
-    
+
     return val;
 }
 
 /**
  * @brief Block until there is pending data
- * 
+ *
  */
 void awaitFurtherInfo()
 {
     bool isEmpty = true;
     int status;
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() general lock");
+        throwThreadError(status, "Error on awaitFurtherInfo() general lock");
 
-
-    for (int i = 0; i < groupSize-1; i++)
+    for (int i = 0; i < groupSize - 1; i++)
     {
         if ((status = pthread_mutex_lock(&fifoAccess[i])) != 0)
             throwThreadError(status, "Error on awaitFurtherInfo() local lock");
@@ -318,6 +319,6 @@ void awaitFurtherInfo()
             throwThreadError(status, "Error on awaitFurtherInfo() fifoEmpty wait");
     }
 
-     if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() general unlock");
+    if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
+        throwThreadError(status, "Error on awaitFurtherInfo() general unlock");
 }

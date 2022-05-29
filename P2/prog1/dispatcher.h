@@ -14,20 +14,17 @@
 
 /**
  * @brief Parses a file into chunks, emits them towards the publisher
- *
  */
-extern void* dispatchFileTasksIntoSender();
+extern void *dispatchFileTasksIntoSender();
 
 /**
  * @brief Takes file chunks and sends them to workers
- *
  */
-extern void* emitTasksToWorkers();
+extern void *emitTasksToWorkers();
 
 /**
  * @brief Merges task results from workers onto a results array
- *
  */
-extern void* mergeChunks();
+extern void *mergeChunks();
 
 #endif
