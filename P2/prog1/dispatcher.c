@@ -271,19 +271,17 @@ void* emitTasksToWorkers(){
  */
 void *mergeChunks(){
     int nextReceive = 1;
-    int read; //move data here
+    int readArr[3]; //move data here
     //for each file
     for(int i=0;i<totalFileCount;i++){
         Result* res = getResultToUpdate(i); //blocks until this results object has been initialized
         int currentChunk = 0;
         while (hasMoreChunks(i, currentChunk++)) {
             //get wc,start vowel, end consonant
-            MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            (*res).wordCount+=read;
-            MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            (*res).vowelStartCount+=read;
-            MPI_Recv(&read,1,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            (*res).consonantEndCount+=read;
+            MPI_Recv(readArr,3,MPI_INT,nextReceive,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            (*res).wordCount+=readArr[0];
+            (*res).vowelStartCount+=readArr[1];
+            (*res).consonantEndCount+=readArr[2];
             //avance dispatch
             nextReceive++;
             if(nextReceive>=groupSize)

@@ -115,6 +115,7 @@ void whileTasksWorkAndSendResult()
     int currentMax = 0;
     char * chunk;
     Result result;
+    int sendArray[3];
     
     MPI_Request req = MPI_REQUEST_NULL;
     while (true)
@@ -144,12 +145,11 @@ void whileTasksWorkAndSendResult()
         //receive chunk
         MPI_Recv(chunk,size,MPI_CHAR,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         result = parseTask(size,chunk);
+        sendArray[0] = result.wordCount;
+        sendArray[1] = result.vowelStartCount;
+        sendArray[2] = result.consonantEndCount;
         //send back result, WC, startVowel , endConsonant
-        MPI_Isend( &result.wordCount , 1 , MPI_INT , 0 , 0 , MPI_COMM_WORLD , &req);
-        MPI_Request_free(&req);
-        MPI_Isend( &result.vowelStartCount , 1 , MPI_INT , 0 , 0 , MPI_COMM_WORLD , &req);
-        MPI_Request_free(&req);
-        MPI_Isend( &result.consonantEndCount , 1 , MPI_INT , 0 , 0 , MPI_COMM_WORLD , &req);
+        MPI_Isend( sendArray , 3 , MPI_INT , 0 , 0 , MPI_COMM_WORLD , &req);
     }
 
     if (currentMax>0)
