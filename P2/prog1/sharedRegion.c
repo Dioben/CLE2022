@@ -160,10 +160,10 @@ void initResult()
     results[lastInitializedResult].wordCount = 0;
 
     if ((status = pthread_cond_signal(&resultInitialized)) != 0)
-        throwThreadError(status, "Error on initResult() new result signal");
+        throwThreadError(status, "Error on initResult() resultInitialized signal");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on initResult() unlock");
 }
 
 /**
@@ -175,8 +175,14 @@ void finishedReading()
 
     lastInitializedResult++;
 
+    if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
+        throwThreadError(status, "Error on finishedReading() lock");
+
     if ((status = pthread_cond_signal(&chunksIncreased)) != 0)
-        throwThreadError(status, "Error on initResult() new result signal");
+        throwThreadError(status, "Error on finishedReading() chunksIncreased signal");
+
+    if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
+        throwThreadError(status, "Error on finishedReading() lock");
 }
 
 /**
@@ -189,15 +195,15 @@ void incrementChunks(int fileIndex)
     int status;
 
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on incrementChunks() lock");
 
     results[fileIndex].chunks++;
 
     if ((status = pthread_cond_signal(&chunksIncreased)) != 0)
-        throwThreadError(status, "Error on initResult() new result signal");
+        throwThreadError(status, "Error on incrementChunks() chunksIncreased signal");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on incrementChunks() lock");
 }
 
 /**
@@ -218,7 +224,7 @@ Result *getResultToUpdate(int fileIndex)
     // wait for result initialization
     while (fileIndex > lastInitializedResult)
         if ((status = pthread_cond_wait(&resultInitialized, &resultsAccess)) != 0)
-            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+            throwThreadError(status, "Error on getResultToUpdate() resultInitialized wait");
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
         throwThreadError(status, "Error on getResultToUpdate() unlock");
@@ -238,19 +244,19 @@ bool hasMoreChunks(int fileIndex, int currentChunk)
     int status;
 
     if ((status = pthread_mutex_lock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on hasMoreChunks() lock");
 
     // wait until there are chunks left in the current fileIndex
     // or it has been confirmed that no more chunks will be read
     while (fileIndex >= lastInitializedResult && currentChunk >= results[fileIndex].chunks)
         if ((status = pthread_cond_wait(&chunksIncreased, &resultsAccess)) != 0)
-            throwThreadError(status, "Error on getTask() fifoEmpty wait");
+            throwThreadError(status, "Error on hasMoreChunks() chunksIncreased wait");
 
     // if false, all chunks of current file index have been used
     val = currentChunk < results[fileIndex].chunks;
 
     if ((status = pthread_mutex_unlock(&resultsAccess)) != 0)
-        throwThreadError(status, "Error on initResult() lock");
+        throwThreadError(status, "Error on hasMoreChunks() lock");
 
     return val;
 }
@@ -290,7 +296,7 @@ void pushTaskToSender(int worker, Task task)
     int status;
 
     if ((status = pthread_mutex_lock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() lock");
+        throwThreadError(status, "Error on pushTaskToSender() fifoAccess lock");
 
     while (full[worker])
         if ((status = pthread_cond_wait(&fifoFull[worker], &fifoAccess[worker])) != 0)
@@ -301,17 +307,17 @@ void pushTaskToSender(int worker, Task task)
     full[worker] = (ii[worker] == ri[worker]);
 
     if ((status = pthread_mutex_unlock(&fifoAccess[worker])) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() unlock");
+        throwThreadError(status, "Error on pushTaskToSender() fifoAccess unlock");
 
     // notify that there's new content
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() notification lock");
+        throwThreadError(status, "Error on pushTaskToSender() awaitAccess lock");
 
     if ((status = pthread_cond_signal(&newTask)) != 0)
-        throwThreadError(status, "Error on putTask() fifoEmpty signal");
+        throwThreadError(status, "Error on pushTaskToSender() newTask signal");
 
     if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
-        throwThreadError(status, "Error on pushTaskToSender() notification unlock");
+        throwThreadError(status, "Error on pushTaskToSender() awaitAccess unlock");
 }
 
 /**
@@ -360,32 +366,32 @@ void awaitFurtherTasks()
     bool isEmpty = true;
     int status;
     if ((status = pthread_mutex_lock(&awaitAccess)) != 0)
-        throwThreadError(status, "Error on awaitFurtherInfo() general lock");
+        throwThreadError(status, "Error on awaitFurtherInfo() awaitAccess lock");
 
     for (int i = 0; i < processCount - 1; i++)
     {
         if ((status = pthread_mutex_lock(&fifoAccess[i])) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() local lock");
+            throwThreadError(status, "Error on awaitFurtherInfo() fifoAccess lock");
 
         // if not empty
         if (!(ii[i] == ri[i] && !full[i]))
         {
             isEmpty = false;
             if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
-                throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
+                throwThreadError(status, "Error on awaitFurtherInfo() fifoAccess (is not empty) unlock");
             break;
         }
 
         if ((status = pthread_mutex_unlock(&fifoAccess[i])) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() local unlock");
+            throwThreadError(status, "Error on awaitFurtherInfo() fifoAccess unlock");
     }
 
     if (isEmpty)
     {
         if ((status = pthread_cond_wait(&newTask, &awaitAccess)) != 0)
-            throwThreadError(status, "Error on awaitFurtherInfo() fifoEmpty wait");
+            throwThreadError(status, "Error on awaitFurtherInfo() newTask wait");
     }
 
     if ((status = pthread_mutex_unlock(&awaitAccess)) != 0)
-        throwThreadError(status, "Error on awaitFurtherInfo() general unlock");
+        throwThreadError(status, "Error on awaitFurtherInfo() awaitAccess unlock");
 }
