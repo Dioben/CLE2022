@@ -1,7 +1,7 @@
 /**
  * @file sharedRegion.h (interface file)
  *
- * @brief Problem name: multithreaded dispatcher for determinant calculation
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
  * Shared region acessed by dispatcher and merger threads at the same time.
  *
@@ -17,8 +17,10 @@
 /**
  * @brief Struct containing the results calculated from a file.
  *
- * "matrixCount" - number of matrices in the file.
- * "determinants" - array with the determinant of all matrices.
+ * @param chunks the number of chunks read from the file
+ * @param vowelStartCount number of words that start with a vowel in the file
+ * @param consonantEndCount number of words that end with a consonant in the file
+ * @param wordCount number of words in the file
  */
 typedef struct Result
 {
@@ -31,8 +33,8 @@ typedef struct Result
 /**
  * @brief Struct containing the data required for a worker to work on a task.
  *
- * "byteCount" - number of bytes read from the file.
- * "bytes" - array with the bytes read from the file.
+ * @param byteCount number of bytes read from the file
+ * @param bytes array with the bytes read from the file
  */
 typedef struct Task
 {
@@ -46,8 +48,9 @@ extern int totalFileCount;
 /** @brief Array with the file names of all files. */
 extern char **files;
 
-/** @brief Total process count. */
-extern int groupSize;
+/** @brief Total process count. Includes rank 0. */
+extern int processCount;
+
 /**
  * @brief Initializes the shared region.
  *
@@ -55,9 +58,10 @@ extern int groupSize;
  *
  * @param _totalFileCount number of files to be processed
  * @param _files array with the file names of all files
- * @param workers number of available worker processes
+ * @param _processCount total process count
+ * @param _fifoSize max number of items the task FIFOs can contain
  */
-extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, int _fifoSize);
+extern void initSharedRegion(int _totalFileCount, char *_files[_totalFileCount], int _processCount, int _fifoSize);
 
 /**
  * @brief Frees all memory allocated during initialization of the shared region or the results.
@@ -67,11 +71,38 @@ extern void initSharedRegion(int _totalFileCount, char *_files[], int workers, i
 extern void freeSharedRegion();
 
 /**
- * @brief Initializes the result of a file.
- *
- * @param matrixCount number of matrices in the file
+ * @brief Initializes the result of the next file index.
  */
 extern void initResult();
+
+/**
+ * @brief Used when dispatcher has finished reading so that hasMoreChunks() can handle the last file.
+ */
+extern void finishedReading();
+
+/**
+ * @brief Increment the chunks read by 1.
+ *
+ * @param fileIndex index of the file
+ */
+extern void incrementChunks(int fileIndex);
+
+/**
+ * @brief Allows merger to get a result object, will block until result at index has been initialized.
+ *
+ * @param fileIndex index of the file
+ */
+extern Result *getResultToUpdate(int fileIndex);
+
+/**
+ * @brief Will wait until there are more chunks to be used in the file or all chunks have already been used.
+ *
+ * @param fileIndex index of the file
+ * @param currentChunk last chunk to be used
+ * @return true if there are more chunks of the file available to be used
+ * @return false if all chunks of the file have been used
+ */
+extern bool hasMoreChunks(int fileIndex, int currentChunk);
 
 /**
  * @brief Gets the results of all files.
@@ -81,22 +112,9 @@ extern void initResult();
 extern Result *getResults();
 
 /**
- * @brief Allows merger to get a result object, will block until result at index has been initialized
+ * @brief Pushes a chunk to a given worker's queue.
  *
- * @param fileIndex index of the file
- * @param matrixIndex index of the matrix in the file
- * @param determinant determinant of the matrix
- */
-extern Result *getResultToUpdate(int idx);
-
-void incrementChunks(int fileIndex);
-
-bool hasMoreChunks(int fileIndex, int currentChunks);
-
-void finishedReading();
-
-/**
- * @brief Pushes a chunk to a given worker's queue
+ * Notifies anyone inside awaitFurtherTasks.
  *
  * @param worker rank of worker chunk is meant for
  * @param task task that worker must perform
@@ -106,15 +124,14 @@ extern void pushTaskToSender(int worker, Task task);
 /**
  * @brief Get a task for a given worker
  *
- * @param worker worker rank
- * @param task a task meant for the worker
- * @return if getTask was successful (fifo was not empty)
+ * @param worker worker rank minus 1
+ * @return Task* a task meant for the worker
  */
 extern bool getTask(int worker, Task *task);
 
 /**
- * @brief Block until there is pending data
- *
+ * @brief Block until there are pending tasks.
  */
-extern void awaitFurtherInfo();
+extern void awaitFurtherTasks();
+
 #endif

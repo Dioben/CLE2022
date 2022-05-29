@@ -24,9 +24,9 @@
 /**
  * @brief Struct containing the command line argument values.
  *
- * @param status if the file was called correctly.
- * @param fileCount count of the files given.
- * @param fileNames array of file names given.
+ * @param status if the file was called correctly
+ * @param fileCount count of the files given
+ * @param fileNames array of file names given
  */
 typedef struct CMDArgs
 {

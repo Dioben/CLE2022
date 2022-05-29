@@ -1,7 +1,7 @@
 /**
  * @file utfUtils.h (interface file)
  *
- * @brief Problem name: multiprocess word count
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
  * Defines some components needed by both worker and dispatcher.
  *

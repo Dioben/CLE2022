@@ -1,7 +1,7 @@
 /**
  * @file dispatcher.c (implementation file)
  *
- * @brief Problem name: multiprocess word count
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
  * Contains implementation of the dispatcher process.
  *
@@ -21,13 +21,6 @@
 #include "dispatcher.h"
 #include "utfUtils.h"
 #include "sharedRegion.h"
-
-/**
- * @brief Reads a chunk from a file stream into a byte array.
- *
- * @param file file stream to be read
- * @return Task struct with the number of bytes read and byte array
- */
 
 /** @brief The initial max number of bytes of the text chunk in a task. */
 static const int MAX_BYTES_READ = 500;
@@ -66,6 +59,12 @@ int readLetterFromFile(FILE *file)
     return letter;
 }
 
+/**
+ * @brief Reads a chunk from a file stream into a byte array.
+ *
+ * @param file file stream to be read
+ * @return Task struct with the number of bytes read and byte array
+ */
 static Task readBytes(FILE *file)
 {
     Task task = {.byteCount = -1,
@@ -134,6 +133,11 @@ static Task readBytes(FILE *file)
     return task;
 }
 
+/**
+ * @brief Thread that parses a file into chunks, emits them towards the publisher.
+ *
+ * @return pointer to the identification of this thread
+ */
 void *dispatchFileTasksIntoSender()
 {
     int nextDispatch = 1;
@@ -142,11 +146,10 @@ void *dispatchFileTasksIntoSender()
         char *filename = files[fIdx];
         FILE *file = fopen(filename, "rb");
         initResult();
+
+        // if file is a dud
         if (file == NULL)
-        {
-            // file is a dud
             continue;
-        }
 
         Task task;
 
@@ -154,20 +157,22 @@ void *dispatchFileTasksIntoSender()
         {
             // get chunk
             task = readBytes(file);
+
             // exit if no chunk
             if (task.byteCount == 0)
             {
                 free(task.bytes);
                 break;
             }
+
             incrementChunks(fIdx);
 
             // send task into respective queue, this may block
             pushTaskToSender(nextDispatch, task);
 
-            // advance dispatch number, wraps back to 1 after size
+            // advance dispatch number, wraps back to 1 after processCount
             nextDispatch++;
-            if (nextDispatch >= groupSize)
+            if (nextDispatch >= processCount)
                 nextDispatch = 1;
         }
     }
@@ -175,31 +180,29 @@ void *dispatchFileTasksIntoSender()
 
     // send signal to stop workers
     Task stop = {.byteCount = -1};
-    for (int i = 1; i < groupSize; i++)
+    for (int i = 1; i < processCount; i++)
         pushTaskToSender(i, stop);
-    // signal that there's nothing left for workers to process
-    // MPI_Send(&stop, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
     pthread_exit((int *)EXIT_SUCCESS);
 }
 
 /**
- * @brief Emits chunks toward workers in a non-blocking manner
+ * @brief Thread that emits chunks toward workers in a non-blocking manner.
  *
- * @return void*
+ * @return pointer to the identification of this thread
  */
 void *emitTasksToWorkers()
 {
     // curently employed entities
-    bool working[groupSize - 1];
-    int currentlyWorking = groupSize - 1;
+    bool working[processCount - 1];
+    int currentlyWorking = processCount - 1;
 
     // request handler objects, last chunk received
-    int requests[groupSize - 1];
-    Task tasks[groupSize - 1];
+    int requests[processCount - 1];
+    Task tasks[processCount - 1];
 
     // init data for this function
-    for (int i = 0; i < groupSize - 1; i++)
+    for (int i = 0; i < processCount - 1; i++)
     {
         requests[i] = MPI_REQUEST_NULL;
         tasks[i].byteCount = 0;
@@ -216,28 +219,29 @@ void *emitTasksToWorkers()
 
     while (true)
     {
-
-        for (int i = 0; i < groupSize - 1; i++)
+        for (int i = 0; i < processCount - 1; i++)
         {
-
             MPI_Test(requests + i, &testStatus, MPI_STATUS_IGNORE);
+
+            // if worker is ready
             if (working[i] && testStatus)
             {
-                // worker is ready
                 // clear out last task
                 if (tasks[i].byteCount > 0)
                     free(tasks[i].bytes);
+
                 // try to get a new task
                 if (!getTask(i, tasks + i))
                 {
-                    tasks[i].byteCount = 0; // task get failed, we use this to avoid free in future loops
+                    // task get failed, we use this to avoid free in future loops
+                    tasks[i].byteCount = 0;
                 }
-
                 else
                 {
-                    // is a kill request, signal worker to stop and mark this worker as dead
+                    // if is a kill request
                     if (tasks[i].byteCount == -1)
                     {
+                        // signal worker to stop and mark this worker as dead
                         currentlyWorking--;
                         MPI_Isend(&killSignal, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD, requests + i);
                         working[i] = false;
@@ -251,49 +255,51 @@ void *emitTasksToWorkers()
                 }
             }
         }
-
         if (currentlyWorking > 0)
         {
             // wait for any chunks to be available and for a worker to be available
-            awaitFurtherInfo();
-            MPI_Waitany(groupSize - 1, requests, &lastFinish, MPI_STATUS_IGNORE);
+            awaitFurtherTasks();
+            MPI_Waitany(processCount - 1, requests, &lastFinish, MPI_STATUS_IGNORE);
         }
         else
             break;
     }
 
     // wait for all the kill messages to have been sent
-    for (int i = 0; i < groupSize - 1; i++)
-        // signal that there's nothing left for workers to process
+    for (int i = 0; i < processCount - 1; i++)
         MPI_Wait(&requests[i], MPI_STATUS_IGNORE);
 
     pthread_exit((int *)EXIT_SUCCESS);
 }
 
 /**
- * @brief Merges file chunks read by workers into their results structure
+ * @brief Thread that merges file chunks read by workers into their results structure.
  *
- * @return void*
+ * @return pointer to the identification of this thread
  */
 void *mergeChunks()
 {
     int nextReceive = 1;
     int readArr[3]; // move data here
+
     // for each file
     for (int i = 0; i < totalFileCount; i++)
     {
-        Result *res = getResultToUpdate(i); // blocks until this results object has been initialized
+        // blocks until this results object has been initialized
+        Result *res = getResultToUpdate(i);
+
         int currentChunk = 0;
         while (hasMoreChunks(i, currentChunk++))
         {
-            // get wc,start vowel, end consonant
+            // get word count, start vowel count, end consonant count
             MPI_Recv(readArr, 3, MPI_INT, nextReceive, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             (*res).wordCount += readArr[0];
             (*res).vowelStartCount += readArr[1];
             (*res).consonantEndCount += readArr[2];
-            // avance dispatch
+
+            // advance dispatch number, wraps back to 1 after processCount
             nextReceive++;
-            if (nextReceive >= groupSize)
+            if (nextReceive >= processCount)
                 nextReceive = 1;
         }
     }

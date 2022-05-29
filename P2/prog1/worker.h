@@ -1,7 +1,7 @@
 /**
  * @file worker.h (interface file)
  *
- * @brief Problem name: multiprocess determinant calculation
+ * @brief Problem name: multiprocess word count with multithreaded dispatcher
  *
  * Contains implementation of the worker process.
  *
