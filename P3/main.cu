@@ -150,6 +150,29 @@ static void printResults(char **fileNames, int fileCount, Result* results)
     }
 }
 
+
+// grid 1D block 1D
+__global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants, int order, int offset, int totalMatrices)
+{
+    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned short localMatrix = idx/order;
+    unsigned short row = idx%order;
+    double hold;
+
+    //initialize relevant shared memory
+    if (idx<blockDim.x && idx+offset<totalMatrices)
+        determinants[idx+offset] = 1;
+
+
+    for (short i=0;i<order;i++){
+            //TODO:ASSESS SWAP, SYNC
+            //TODO: PERFORM SWAP, SYNC
+            //TODO: REDUCTION, MULT HELD VALUE, SYNC
+    }
+
+
+}
+
 static void parseFile(char * fileName, Result* resultSlot){
 
     FILE *file = fopen(fileName, "rb");
@@ -179,7 +202,7 @@ static void parseFile(char * fileName, Result* resultSlot){
     (resultSlot)->determinants = (double *) malloc(sizeof(double)*count);
     double * determinantsOnGPU;
     CHECK(cudaMalloc((void **)&determinantsOnGPU, sizeof(double)*count));
-
+    memset(determinantsOnGPU,1,sizeof(double)*count);
     //how many matrixes we can work with at once
     double simultaneousMatrixes = MAX_THREADS/order;
 
@@ -194,7 +217,7 @@ static void parseFile(char * fileName, Result* resultSlot){
         {
             fread(matrix, 8, memsize, file);
             CHECK(cudaMemcpy(matrixOnGPU, matrix, memsize, cudaMemcpyHostToDevice));
-            //TODO: YE FANCY GPU STUFF FUNCTION
+            calculateDeterminantsOnGPU<<<grid, block>>>(matrixOnGPU, determinantsOnGPU, order, i*simultaneousMatrixes,count);
             CHECK(cudaDeviceSynchronize());
             CHECK(cudaGetLastError());
             
@@ -208,6 +231,7 @@ static void parseFile(char * fileName, Result* resultSlot){
     free(matrix);
     fclose(file);
 }
+
 
 int main(int argc, char **argv)
 {
