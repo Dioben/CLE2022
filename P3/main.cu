@@ -155,19 +155,36 @@ static void printResults(char **fileNames, int fileCount, Result* results)
 __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants, int order, int offset, int totalMatrices)
 {
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    unsigned short localMatrix = idx/order;
+    unsigned int localMatrixOffset = blockIdx.x*order*order; //idx/order
     unsigned short row = idx%order;
     double hold;
 
-    //initialize relevant shared memory
-    if (idx<blockDim.x && idx+offset<totalMatrices)
+    //for when matrixes arent a multiple of how many we can handle at once
+    if (offset+blockIdx.x>=totalMatrices){
+        return;
+    }
+    //initialize relevant shared memory, this won't write out of bound because we've forced return on OOB entities.
+    if (idx<blockDim.x)
         determinants[idx+offset] = 1;
 
+    
 
     for (short i=0;i<order;i++){
-            //TODO:ASSESS SWAP, SYNC
-            //TODO: PERFORM SWAP, SYNC
-            //TODO: REDUCTION, MULT HELD VALUE, SYNC
+            if (i>row){
+                if (matrix[localMatrixOffset+i*order+order]==0)
+                    __syncthreads(); //assess swap
+                __syncthreads(); //swaps performed OR assess finished if no swap was required
+                __syncthreads(); //reduced matrix
+            }
+            else{
+                if (matrix[localMatrixOffset+i*order+order]==0){
+                    __syncthreads();
+                //TODO: SWAP
+                }
+                __syncthreads();
+                //TODO: REDUCE
+                __syncthreads();
+            }
     }
 
 
