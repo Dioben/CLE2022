@@ -1,7 +1,7 @@
 /**
  * @file main.cu (implementation file)
  *
- * @brief Problem name: CUDA matrix multiplication (TODO: DID THIS TURN OUT ROW FIRST OR COL FIRST)
+ * @brief Problem name: CUDA matrix multiplication along rows
  *
  *
  * @author Pedro Casimiro, nmec: 93179
@@ -194,17 +194,22 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             }
             __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
             if (row==i){
-                determinants[offset+localMatrixOffset]*=-1; //TODO: TRY TO UNIFY THIS WITH OTHER STATEMENT RELATIVE TO DETERMINANTS WITHOUT MEM BLOAT
+                determinants[offset+localMatrixOffset]*=-1;
             }
         }
         if (row==i){
-                determinants[offset+localMatrixOffset]*=matrix[localMatrixOffset+i*order+i]; //TODO: TRY TO UNIFY THIS WITH OTHER STATEMENT RELATIVE TO DETERMINANTS WITHOUT MEM BLOAT
+                determinants[offset+localMatrixOffset]*=matrix[localMatrixOffset+i*order+i];
             }
-        if (row>=i){
-                    //TODO: REDUCE ALONG ROW
+        if (row>i){
+            //REDUCE ALONG ROW
+            hold = matrix[localMatrixOffset+order*row+i]/matrix[localMatrixOffset+i*row+i]; //A(k,i) /A(i,i)
+            for (int j = i; j < order; j++)
+            {
+                matrix[row * order + j] -= hold * matrix[i * order + j];
+            }
         }
 
-        __syncthreads();
+        __syncthreads(); //SYNC POINT: REDUCE IS DONE
             
     }
 
