@@ -200,12 +200,12 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
         if (column==i){
                 determinants[offset+localMatrixOffset]*=matrix[localMatrixOffset+i*order+i];
             }
-        if (row>i){
-            //REDUCE ALONG ROW
-            hold = matrix[localMatrixOffset+order*row+i]/matrix[localMatrixOffset+i*row+i]; //A(k,i) /A(i,i)
-            for (int j = i; j < order; j++)
+        if (column>=i){
+            //REDUCE ALONG COLUMN
+            hold = matrix[localMatrixOffset+order*i+column]/matrix[localMatrixOffset+i*order+i]; //A(i,j) /A(i,i)
+            for (int k = i+1; k < order; k++)
             {
-                matrix[row * order + j] -= hold * matrix[i * order + j];
+               matrix[localMatrixOffset+ k * order + column] -= hold * matrix[localMatrixOffset+ k * order + i];
             }
         }
 
