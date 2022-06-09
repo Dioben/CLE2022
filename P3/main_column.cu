@@ -1,7 +1,7 @@
 /**
  * @file main.cu (implementation file)
  *
- * @brief Problem name: CUDA matrix multiplication along rows
+ * @brief Problem name: CUDA matrix multiplication along columns
  *
  *
  * @author Pedro Casimiro, nmec: 93179
@@ -156,7 +156,7 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
 {
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
     unsigned int localMatrixOffset = blockIdx.x*order*order; //idx/order
-    unsigned short row = idx%order;
+    unsigned short column = idx%order;
     double hold;
 
     //for when matrixes arent a multiple of how many we can handle at once, kill excess blocks
@@ -173,12 +173,12 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             
             short foundJ = 0;
             for (short j = i + 1; j < order; j++) 
-                if (matrix[localMatrixOffset+ order * i + j] != 0) //this searches COLUMNS
+                if (matrix[localMatrixOffset+ order * j + i] != 0) //this searches ROWS
                     foundJ = j;
                     break;
             
             if (!foundJ){ //no swap possible
-                if (i==row){
+                if (i==column){
                     determinants[offset+localMatrixOffset]=0; //set value before exit
                 }
                 return;
@@ -186,26 +186,26 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
 
             __syncthreads(); //SYNC POINT: WE KNOW WHAT SWAP IS REQUIRED
             
-            if (row>=i){
-            //perform swap by grabbing value from row ROW, column FOUNDJ into row ROW column I
-            hold = matrix[localMatrixOffset+row*order+foundJ];
-            matrix[localMatrixOffset+row*order+foundJ] =  matrix[localMatrixOffset+row*order+i];
-            matrix[localMatrixOffset+row*order+i] = hold;
+            if (column>=i){
+            //perform swap by grabbing value from column COLUMN, row FOUNDJ into column COLUMN row I
+            hold = matrix[localMatrixOffset+column +order*foundJ];
+            matrix[localMatrixOffset+column +order*foundJ] =  matrix[localMatrixOffset+column+order*i];
+            matrix[localMatrixOffset+column+order*i] = hold;
             }
             __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
-            if (row==i){
+            if (column==i){
                 determinants[offset+localMatrixOffset]*=-1;
             }
         }
-        if (row==i){
+        if (column==i){
                 determinants[offset+localMatrixOffset]*=matrix[localMatrixOffset+i*order+i];
             }
-        if (row>i){
-            //REDUCE ALONG ROW
-            hold = matrix[localMatrixOffset+order*row+i]/matrix[localMatrixOffset+i*order+i]; //A(k,i) /A(i,i)
-            for (int j = i; j < order; j++)
+        if (column>=i){
+            //REDUCE ALONG COLUMN
+            hold = matrix[localMatrixOffset+order*i+column]/matrix[localMatrixOffset+i*order+i]; //A(i,j) /A(i,i)
+            for (int k = i+1; k < order; k++)
             {
-                matrix[localMatrixOffset+ row * order + j] -= hold * matrix[localMatrixOffset+i * order + j];
+               matrix[localMatrixOffset+ k * order + column] -= hold * matrix[localMatrixOffset+ k * order + i];
             }
         }
 
