@@ -242,7 +242,7 @@ static void parseFile(char * fileName, Result* resultSlot){
     
     //initialize results object
     (*resultSlot).matrixCount = count;
-    (resultSlot)->determinants = (double *) malloc(sizeof(double)*count);
+    (*resultSlot).determinants = (double *) malloc(sizeof(double)*count);
     double * determinantsOnGPU;
     CHECK(cudaMalloc((void **)&determinantsOnGPU, sizeof(double)*count));
     memset(determinantsOnGPU,1,sizeof(double)*count);
