@@ -164,12 +164,12 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
         return;
     }
     //initialize relevant shared memory, this won't write out of bound because we've forced return on out of bound entities.
-    if (idx<blockDim.x)
-        determinants[idx+offset] = 1;
+    if (column == 0)
+        determinants[offset+blockIdx.x] = 1;
 
     
     for (short i=0;i<order;i++){
-        if (matrix[localMatrixOffset+i*order+order]==0){
+        if (matrix[localMatrixOffset+i*order+i]==0){
             
             short foundJ = 0;
             for (short j = i + 1; j < order; j++) 
@@ -178,8 +178,8 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
                     break;
             
             if (!foundJ){ //no swap possible
-                if (i==column){
-                    determinants[offset+localMatrixOffset]=0; //set value before exit
+                if (column==0){
+                    determinants[offset+blockIdx.x]=0; //set value before exit
                 }
                 return;
             }
@@ -194,11 +194,11 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             }
             __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
             if (column==i){
-                determinants[offset+localMatrixOffset]*=-1;
+                determinants[offset+blockIdx.x]*=-1;
             }
         }
         if (column==i){
-                determinants[offset+localMatrixOffset]*=matrix[localMatrixOffset+i*order+i];
+                determinants[offset+blockIdx.x]*=matrix[localMatrixOffset+i*order+i];
             }
         if (column>=i){
             //REDUCE ALONG COLUMN
@@ -245,11 +245,10 @@ static void parseFile(char * fileName, Result* resultSlot){
     (*resultSlot).determinants = (double *) malloc(sizeof(double)*count);
     double * determinantsOnGPU;
     CHECK(cudaMalloc((void **)&determinantsOnGPU, sizeof(double)*count));
-    memset(determinantsOnGPU,1,sizeof(double)*count);
     //how many matrixes we can work with at once
-    double simultaneousMatrixes = MAX_THREADS/order;
+    int simultaneousMatrixes = MAX_THREADS/order;
 
-    int memsize = MAX_THREADS * order* sizeof(double);
+    int memsize = simultaneousMatrixes*order * order* sizeof(double);
     double * matrixOnGPU;
     double * matrix = (double *) malloc(memsize);
     CHECK(cudaMalloc((void **)&matrixOnGPU, memsize));
