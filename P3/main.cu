@@ -159,32 +159,53 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
     unsigned short row = idx%order;
     double hold;
 
-    //for when matrixes arent a multiple of how many we can handle at once
+    //for when matrixes arent a multiple of how many we can handle at once, kill excess blocks
     if (offset+blockIdx.x>=totalMatrices){
         return;
     }
-    //initialize relevant shared memory, this won't write out of bound because we've forced return on OOB entities.
+    //initialize relevant shared memory, this won't write out of bound because we've forced return on out of bound entities.
     if (idx<blockDim.x)
         determinants[idx+offset] = 1;
 
     
-
     for (short i=0;i<order;i++){
-            if (i>row){
-                if (matrix[localMatrixOffset+i*order+order]==0)
-                    __syncthreads(); //assess swap
-                __syncthreads(); //swaps performed OR assess finished if no swap was required
-                __syncthreads(); //reduced matrix
-            }
-            else{
-                if (matrix[localMatrixOffset+i*order+order]==0){
-                    __syncthreads();
-                //TODO: SWAP
+        if (matrix[localMatrixOffset+i*order+order]==0){
+            
+            short foundJ = 0;
+            for (short j = i + 1; j < order; j++) 
+                if (matrix[localMatrixOffset+ order * i + j] != 0) //this searches COLUMNS
+                    foundJ = j;
+                    break;
+            
+            if (!foundJ){ //no swap possible
+                if (i==row){
+                    determinants[offset+localMatrixOffset]=0; //set value before exit
                 }
-                __syncthreads();
-                //TODO: REDUCE
-                __syncthreads();
+                return;
             }
+
+            __syncthreads(); //SYNC POINT: WE KNOW WHAT SWAP IS REQUIRED
+            
+            if (row>=i){
+            //perform swap by grabbing value from row ROW, column FOUNDJ into row ROW column I
+            hold = matrix[localMatrixOffset+row*order+foundJ];
+            matrix[localMatrixOffset+row*order+foundJ] =  matrix[localMatrixOffset+row*order+i];
+            matrix[localMatrixOffset+row*order+i] = hold;
+            }
+            __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
+            if (row==i){
+                determinants[offset+localMatrixOffset]*=-1; //TODO: TRY TO UNIFY THIS WITH OTHER STATEMENT RELATIVE TO DETERMINANTS WITHOUT MEM BLOAT
+            }
+        }
+        if (row==i){
+                determinants[offset+localMatrixOffset]*=matrix[localMatrixOffset+i*order+i]; //TODO: TRY TO UNIFY THIS WITH OTHER STATEMENT RELATIVE TO DETERMINANTS WITHOUT MEM BLOAT
+            }
+        if (row>=i){
+                    //TODO: REDUCE ALONG ROW
+        }
+
+        __syncthreads();
+            
     }
 
 
