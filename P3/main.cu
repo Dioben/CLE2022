@@ -77,8 +77,8 @@ CMDArgs parseCMD(int argc, char *args[])
     cmdArgs.status = EXIT_FAILURE;
     int opt;
     opterr = 0;
-    unsigned int filestart = -1;
-    unsigned int filespan = 0;
+    int filestart = -1;
+    int filespan = 0;
 
     if (argc == 1) // no args
     {
@@ -265,7 +265,7 @@ static void parseFile(char * fileName, Result* resultSlot){
             
         }
     //copy results out of device
-    CHECK(cudaMemcpy(determinantsOnGPU, (*resultSlot).determinants , count , cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpy((*resultSlot).determinants ,determinantsOnGPU,  count , cudaMemcpyDeviceToHost));
     
     //free memory
     CHECK(cudaFree(determinantsOnGPU));
@@ -299,7 +299,7 @@ int main(int argc, char **argv)
         parseFile(cmdArgs.fileNames[i],results+i);
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-
+    printf("results\n");
     printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
     printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
     
