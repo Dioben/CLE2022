@@ -270,7 +270,6 @@ static void parseFile(char * fileName, Result* resultSlot){
     //free memory
     CHECK(cudaFree(determinantsOnGPU));
     CHECK(cudaFree(matrixOnGPU));
-    free(matrix);
     fclose(file);
 }
 
