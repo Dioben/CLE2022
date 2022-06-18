@@ -77,8 +77,8 @@ CMDArgs parseCMD(int argc, char *args[])
     cmdArgs.status = EXIT_FAILURE;
     int opt;
     opterr = 0;
-    unsigned int filestart = -1;
-    unsigned int filespan = 0;
+    int filestart = -1;
+    int filespan = 0;
 
     if (argc == 1) // no args
     {
