@@ -265,12 +265,11 @@ static void parseFile(char * fileName, Result* resultSlot){
             
         }
     //copy results out of device
-    CHECK(cudaMemcpy(determinantsOnGPU, (*resultSlot).determinants , count , cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpy((*resultSlot).determinants ,determinantsOnGPU,  count , cudaMemcpyDeviceToHost));
     
     //free memory
     CHECK(cudaFree(determinantsOnGPU));
     CHECK(cudaFree(matrixOnGPU));
-    free(matrix);
     fclose(file);
 }
 
@@ -299,7 +298,7 @@ int main(int argc, char **argv)
         parseFile(cmdArgs.fileNames[i],results+i);
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-
+    printf("results\n");
     printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
     printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
     
