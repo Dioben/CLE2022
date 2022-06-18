@@ -18,11 +18,6 @@
 #include <string.h>
 #include <time.h>
 
-/**
- * @brief We know our hardware supports 1024 concurrent threads
- * 
- */
-static const int MAX_THREADS = 1024;
 
 /**
  * @brief Struct containing the command line argument values.
@@ -151,21 +146,32 @@ static void printResults(char **fileNames, int fileCount, Result* results)
 }
 
 
-// grid 1D block 1D
-__global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants, int order, int offset, int totalMatrices)
+/**
+ * @brief Function responsible for computing determinants on GPU
+ * 
+ * @param matrix pointer containing all matrixes
+ * @param determinants pointer containing determinant slots
+ * @param order size of matrices
+ * @return
+ */
+__global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants, int order)
 {
-    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    unsigned int localMatrixOffset = blockIdx.x*order*order; //idx/order
-    unsigned short row = idx%order;
+    //matrix we are working with
+    unsigned int bx = blockIdx.x + gridDim.x * blockIdx.y + gridDim.x* gridDim.y* blockIdx.z;
+    //row we are working with
+    unsigned int idx = threadIdx.x+ blockDim.x* threadIdx.y + blockDim.x * blockDim.y * threadIdx.z;
+
+    //point at our matrix
+    matrix+=bx*order*order;
+
+    //point at our row
+    matrix+= idx*order;
+
     double hold;
 
-    //for when matrixes arent a multiple of how many we can handle at once, kill excess blocks
-    if (offset+blockIdx.x>=totalMatrices){
-        return;
-    }
-    //initialize relevant shared memory, this won't write out of bound because we've forced return on out of bound entities.
-    if (row == 0)
-        determinants[offset+blockIdx.x] = 1;
+    //initialize relevant shared memory
+    if (idx == 0)
+        determinants[bx] = 1;
 
     
     for (short i=0;i<order;i++){
