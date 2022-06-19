@@ -147,6 +147,66 @@ static void printResults(char **fileNames, int fileCount, Result* results)
 
 
 /**
+ * @brief Calculates the determinant of a matrix through Gaussian elimination.
+ *
+ * @param order order of the matrix
+ * @param matrix 1D representation of the matrix
+ * @return determinant of the matrix
+ */
+static double calculateDeterminantOnCPU(int order, double *matrix)
+{
+    // if matrix is small do a simpler calculation
+    if (order == 1)
+    {
+        return matrix[0];
+    }
+    else if (order == 2)
+    {
+        return matrix[0] * matrix[3] - matrix[1] * matrix[2]; // AD - BC
+    }
+    double determinant = 1;
+
+    // turn matrix into a triangular form
+    for (int i = 0; i < order - 1; i++)
+    {
+        // if diagonal is 0 swap rows with another whose value in that column is not 0
+        if (matrix[i * order + i] == 0)
+        {
+            int foundJ = 0;
+            for (int j = i + 1; j < order; j++)
+                if (matrix[j * order + i] != 0)
+                    foundJ = j;
+            if (!foundJ)
+                return 0;
+            determinant *= -1;
+            double tempRow[order];
+            memcpy(tempRow, matrix + i * order, sizeof(double) * order);
+            memcpy(matrix + i * order, matrix + foundJ * order, sizeof(double) * order);
+            memcpy(matrix + foundJ * order, tempRow, sizeof(double) * order);
+        }
+
+        // gaussian elimination
+        for (int k = i + 1; k < order; k++)
+        {
+            double term = matrix[k * order + i] / matrix[i * order + i];
+            for (int j = 0; j < order; j++)
+            {
+                matrix[k * order + j] = matrix[k * order + j] - term * matrix[i * order + j];
+            }
+        }
+    }
+
+    // multiply diagonals of the triangular matrix
+    for (int i = 0; i < order; i++)
+    {
+        determinant *= matrix[i * order + i];
+    }
+    return determinant;
+}
+
+
+
+/**
  * @brief Function responsible for computing determinants on GPU
  * 
  * @param matrix pointer containing all matrixes
@@ -224,6 +284,12 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
 
 }
 
+/**
+ * @brief Parses file contents and calculates determinants on GPU
+ * 
+ * @param fileName Name of file to handle
+ * @param resultSlot Results object to write to
+ */
 static void parseFile(char * fileName, Result* resultSlot){
 
     FILE *file = fopen(fileName, "rb");
@@ -282,6 +348,61 @@ static void parseFile(char * fileName, Result* resultSlot){
 }
 
 
+/**
+ * @brief Parses file contents and calculates determinants on CPU
+ * Used for comparison purposes
+ * 
+ * @param fileName Name of file to handle
+ * @param resultSlot Results object to write to
+ */
+static void parseFileOnCPU(char * fileName, Result* resultSlot){
+
+    FILE *file = fopen(fileName, "rb");
+    // if file is a dud
+    if (file == NULL)
+    {
+        (*resultSlot).matrixCount = 0;
+        return;
+    }
+    // number of matrices in the file
+    int count;
+    fread(&count, 4, 1, file);
+
+    // order of the matrices in the file
+    int order;
+    fread(&order, 4, 1, file);
+    
+    //initialize results object
+    (*resultSlot).matrixCount = count;
+    (*resultSlot).determinants = (double *) malloc(sizeof(double)*count);
+   
+    double * matrix = (double *) malloc(order*order*sizeof(double));
+    for (int i =0;i<count;i++){
+        fread(matrix, 8, order*order, file);
+        resultSlot->determinants[i] = calculateDeterminantOnCPU(order,matrix);
+    }
+    fclose(file);
+    free(matrix);
+}
+
+/**
+ * @brief Count number of different elements between 2 arrays 
+ * 
+ * @param arr1 First array
+ * @param arr2 Second array
+ * @param len Length of arrays
+ * @param tolerance Maximum value difference
+ * @return int Number of different data points
+ */
+static int countDifferent(double* arr1, double* arr2, int len,double tolerance){
+    int c = 0;
+    for (int i=0;i<len;i++){
+        if (fabs(arr1[i]-arr2[i])>tolerance)
+            c++;
+    }
+    return c;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -307,14 +428,36 @@ int main(int argc, char **argv)
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
     printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
-    printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
+    printf("\nElapsed time on GPU = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
     
+
+    Result * resultsOnCPU = (Result *) malloc( sizeof(Result)*cmdArgs.fileCount);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
+   for (int i =0;i<cmdArgs.fileCount;i++){
+        parseFileOnCPU(cmdArgs.fileNames[i],resultsOnCPU+i);
+    }
+    clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
+    printf("Elapsed time on CPU = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
+    
+    int totaldiff = 0;
+    for (int i =0;i<cmdArgs.fileCount;i++){
+        int diff = 0;
+        diff = countDifferent(results[i].determinants,resultsOnCPU[i].determinants,results[i].matrixCount,1e-6);
+        totaldiff+=diff;
+        if (diff)
+            printf("Spotted %d different results at file %s\n",diff,cmdArgs.fileNames[i]);
+    }
+    if (!totaldiff)
+        printf("\nAll values are the same between CPU and GPU\n");
     free(cmdArgs.fileNames);
     for (int i =0;i<cmdArgs.fileCount;i++){
         if (results[i].matrixCount)
             free(results[i].determinants);
+        if (resultsOnCPU[i].matrixCount)
+            free(resultsOnCPU[i].determinants);
     }
     free(results);
+    free(resultsOnCPU);
     
     CHECK(cudaDeviceReset());
 
