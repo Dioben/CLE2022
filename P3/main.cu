@@ -175,43 +175,43 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
 
     
     for (short i=0;i<order;i++){
-        if (matrix[localMatrixOffset+i*order+i]==0){
+        if (matrix[(-idx+i)*order+i]==0){
             
             short foundJ = 0;
             for (short j = i + 1; j < order; j++) 
-                if (matrix[localMatrixOffset+ order * i + j] != 0) //this searches COLUMNS
+                if (matrix[order * (-idx+i) + j] != 0) //this searches COLUMNS
                     foundJ = j;
                     break;
             
             if (!foundJ){ //no swap possible
-                if (row==0){
-                    determinants[offset+blockIdx.x]=0; //set value before exit
+                if (idx==0){
+                    determinants[bx]=0; //set value before exit
                 }
                 return;
             }
 
             __syncthreads(); //SYNC POINT: WE KNOW WHAT SWAP IS REQUIRED
             
-            if (row>=i){
+            if (idx>=i){
             //perform swap by grabbing value from row ROW, column FOUNDJ into row ROW column I
-            hold = matrix[localMatrixOffset+row*order+foundJ];
-            matrix[localMatrixOffset+row*order+foundJ] =  matrix[localMatrixOffset+row*order+i];
-            matrix[localMatrixOffset+row*order+i] = hold;
+            hold = matrix[foundJ];
+            matrix[foundJ] =  matrix[i];
+            matrix[i] = hold;
             }
             __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
-            if (row==i){
-                determinants[offset+blockIdx.x]*=-1;
+            if (idx==i){
+                determinants[bx]*=-1;
             }
         }
-        if (row==i){
-                determinants[offset+blockIdx.x]*=matrix[localMatrixOffset+i*order+i];
+        if (idx==i){
+                determinants[bx]*=matrix[i];
             }
-        if (row>i){
+        if (idx>i){
             //REDUCE ALONG ROW
-            hold = matrix[localMatrixOffset+order*row+i]/matrix[localMatrixOffset+i*order+i]; //A(k,i) /A(i,i)
+            hold = matrix[i]/matrix[(-idx+i)*order+i]; //A(k,i) /A(i,i)
             for (int j = i; j < order; j++)
             {
-                matrix[localMatrixOffset+ row * order + j] -= hold * matrix[localMatrixOffset+i * order + j];
+                matrix[j] -= hold * matrix[(-idx+i)* order + j];
             }
         }
 
