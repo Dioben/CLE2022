@@ -238,8 +238,9 @@ static void parseFile(char * fileName, Result* resultSlot){
     // order of the matrices in the file
     int order;
     fread(&order, 4, 1, file);
-    if (order>MAX_THREADS){
-        printf("File %s with matrixes of size %d is larger than our limit %d, it will be ignored\n",fileName,count,MAX_THREADS);
+
+    if (order*order*count+count>(size_t) 5e9){
+        printf("File %s is bigger than we can handle, it will be ignored\n",fileName);
         fclose(file);
         (*resultSlot).matrixCount = 0;
         return;
@@ -251,25 +252,23 @@ static void parseFile(char * fileName, Result* resultSlot){
     (*resultSlot).determinants = (double *) malloc(sizeof(double)*count);
     double * determinantsOnGPU;
     CHECK(cudaMalloc((void **)&determinantsOnGPU, sizeof(double)*count));
-    //how many matrixes we can work with at once
-    int simultaneousMatrixes = MAX_THREADS/order;
 
-    int memsize = simultaneousMatrixes*order * order* sizeof(double);
+    int memsize = order * order * count * sizeof(double);
+    
     double * matrixOnGPU;
     double * matrix = (double *) malloc(memsize);
     CHECK(cudaMalloc((void **)&matrixOnGPU, memsize));
-    dim3 block(order, 1);
-    dim3 grid((MAX_THREADS + order - 1) / order);
     
-    for (int i = 0; i < count/simultaneousMatrixes; i++)
-        {
-            fread(matrix, 8, memsize, file);
-            CHECK(cudaMemcpy(matrixOnGPU, matrix, memsize, cudaMemcpyHostToDevice));
-            calculateDeterminantsOnGPU<<<grid, block>>>(matrixOnGPU, determinantsOnGPU, order, i*simultaneousMatrixes,count);
-            CHECK(cudaDeviceSynchronize());
-            CHECK(cudaGetLastError());
+    dim3 block(order, 1);
+    dim3 grid(count);
+    
+
+    fread(matrix, 8, memsize, file);
+    CHECK(cudaMemcpy(matrixOnGPU, matrix, memsize, cudaMemcpyHostToDevice));
+    calculateDeterminantsOnGPU<<<grid, block>>>(matrixOnGPU, determinantsOnGPU, order);
+    CHECK(cudaDeviceSynchronize());
+    CHECK(cudaGetLastError());
             
-        }
     //copy results out of device
     CHECK(cudaMemcpy((*resultSlot).determinants ,determinantsOnGPU,  count , cudaMemcpyDeviceToHost));
     
