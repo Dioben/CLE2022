@@ -165,21 +165,21 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
     matrix+=bx*order*order;
 
     //point at our row
-    matrix+= idx*order;
+    //matrix+= idx*order;
 
     double hold;
 
     //initialize relevant shared memory
-    if (idx == 0)
+    if (idx == 0){
         determinants[bx] = 1;
-
+    }
     
     for (short i=0;i<order;i++){
-        if (matrix[(-idx+i)*order+i]==0){
+        if (matrix[i*order+i]==0){
             
             short foundJ = 0;
             for (short j = i + 1; j < order; j++) 
-                if (matrix[order * (-idx+i) + j] != 0) //this searches COLUMNS
+                if (matrix[order * i + j] != 0) //this searches COLUMNS
                     foundJ = j;
                     break;
             
@@ -194,24 +194,26 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             
             if (idx>=i){
             //perform swap by grabbing value from row ROW, column FOUNDJ into row ROW column I
-            hold = matrix[foundJ];
-            matrix[foundJ] =  matrix[i];
-            matrix[i] = hold;
+            hold = matrix[idx*order + foundJ];
+            matrix[idx*order + foundJ] =  matrix[idx*order + i];
+            matrix[idx*order + i] = hold;
             }
+
+
             __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
             if (idx==i){
                 determinants[bx]*=-1;
             }
         }
         if (idx==i){
-                determinants[bx]*=matrix[i];
+                determinants[bx]*=matrix[idx*order+idx];
             }
         if (idx>i){
             //REDUCE ALONG ROW
-            hold = matrix[i]/matrix[(-idx+i)*order+i]; //A(k,i) /A(i,i)
+            hold = matrix[idx*order + i]/matrix[i*order+i]; //A(k,i) /A(i,i)
             for (int j = i; j < order; j++)
             {
-                matrix[j] -= hold * matrix[(-idx+i)* order + j];
+                matrix[idx*order + j] -= hold * matrix[i* order + j];
             }
         }
 
@@ -270,12 +272,13 @@ static void parseFile(char * fileName, Result* resultSlot){
     CHECK(cudaGetLastError());
             
     //copy results out of device
-    CHECK(cudaMemcpy((*resultSlot).determinants ,determinantsOnGPU,  count , cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpy((*resultSlot).determinants ,determinantsOnGPU,  count*sizeof(double) , cudaMemcpyDeviceToHost));
     
     //free memory
     CHECK(cudaFree(determinantsOnGPU));
     CHECK(cudaFree(matrixOnGPU));
     fclose(file);
+    free(matrix);
 }
 
 
@@ -303,7 +306,6 @@ int main(int argc, char **argv)
         parseFile(cmdArgs.fileNames[i],results+i);
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-    printf("results\n");
     printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
     printf("\nElapsed time = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
     
