@@ -225,7 +225,7 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
     matrix+=bx*order*order;
 
     //point at our row
-    double * matrixrow = matrix+ idx*order;
+    double * threadrow = matrix+ idx*order;
 
     double hold;
 
@@ -255,9 +255,9 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             
             if (idx>=i){
             //perform swap by grabbing value from row ROW, column FOUNDJ into row ROW column I
-            hold = matrixrow[foundJ];
-            matrixrow[foundJ] =  matrixrow[i];
-            matrixrow[i] = hold;
+            hold = threadrow[foundJ];
+            threadrow[foundJ] =  threadrow[i];
+            threadrow[i] = hold;
             }
 
 
@@ -267,14 +267,14 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             }
         }
         if (idx==i){
-                determinants[bx]*=matrixrow[idx];
+                determinants[bx]*=threadrow[idx];
             }
         if (idx>i){
             //REDUCE ALONG ROW
-            hold = matrixrow[i]/iterrow[i]; //A(k,i) /A(i,i)
+            hold = threadrow[i]/iterrow[i]; //A(k,i) /A(i,i)
             for (int j = i; j < order; j++)
             {
-                matrixrow[j] -= hold * iterrow[j];
+                threadrow[j] -= hold * iterrow[j];
             }
         }
 
