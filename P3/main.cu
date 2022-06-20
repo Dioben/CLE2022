@@ -398,10 +398,15 @@ static void parseFileOnCPU(char * fileName, Result* resultSlot){
 static int countDifferent(double* arr1, double* arr2, int len,double tolerance){
     int c = 0;
     for (int i=0;i<len;i++){
-        if (fabs(arr1[i]-arr2[i])>tolerance){
-            c++;
-            printf("%f\n",arr1[i]-arr2[i]);
+        if ( arr1[i]==0 ){
+            if ( fabs(arr1[i]-arr2[i]) >tolerance)
+                c++;
         }
+        else{
+            if ( (fabs(arr1[i]-arr2[i])/arr1[i] ) >tolerance)
+                c++;
+       }
+
             
     }
     return c;
@@ -446,7 +451,7 @@ int main(int argc, char **argv)
     int totaldiff = 0;
     for (int i =0;i<cmdArgs.fileCount;i++){
         int diff = 0;
-        diff = countDifferent(results[i].determinants,resultsOnCPU[i].determinants,results[i].matrixCount,1e-5);
+        diff = countDifferent(results[i].determinants,resultsOnCPU[i].determinants,results[i].matrixCount,5e-7);
         totaldiff+=diff;
         if (diff)
             printf("Spotted %d different results at file %s\n",diff,cmdArgs.fileNames[i]);
