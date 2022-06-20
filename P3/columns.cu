@@ -269,7 +269,7 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
         if (idx==i){
                 determinants[bx]*=threadcolumn[idx*order];
             }
-        if (idx>=i){
+        if (idx>i){
             //REDUCE ALONG COLUMN //TODO: POSSIBLE CONCURRENT MODIFICATION HERE
             hold = threadcolumn[i*order]/itercolumn[i*order]; //A(i,j) /A(i,i)
             for (int k = i+1; k < order; k++)
