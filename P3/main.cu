@@ -225,7 +225,7 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
     matrix+=bx*order*order;
 
     //point at our row
-    //matrix+= idx*order;
+    double * threadrow = matrix+ idx*order;
 
     double hold;
 
@@ -235,11 +235,12 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
     }
     
     for (short i=0;i<order;i++){
-        if (matrix[i*order+i]==0){
+        double * iterrow = matrix+ i*order;
+        if (iterrow[i]==0){
             
             short foundJ = 0;
             for (short j = i + 1; j < order; j++) 
-                if (matrix[order * i + j] != 0) //this searches COLUMNS
+                if (iterrow[j] != 0) //this searches COLUMNS
                     foundJ = j;
                     break;
             
@@ -254,9 +255,9 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             
             if (idx>=i){
             //perform swap by grabbing value from row ROW, column FOUNDJ into row ROW column I
-            hold = matrix[idx*order + foundJ];
-            matrix[idx*order + foundJ] =  matrix[idx*order + i];
-            matrix[idx*order + i] = hold;
+            hold = threadrow[foundJ];
+            threadrow[foundJ] =  threadrow[i];
+            threadrow[i] = hold;
             }
 
 
@@ -266,14 +267,14 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             }
         }
         if (idx==i){
-                determinants[bx]*=matrix[idx*order+idx];
+                determinants[bx]*=threadrow[idx];
             }
         if (idx>i){
             //REDUCE ALONG ROW
-            hold = matrix[idx*order + i]/matrix[i*order+i]; //A(k,i) /A(i,i)
+            hold = threadrow[i]/iterrow[i]; //A(k,i) /A(i,i)
             for (int j = i; j < order; j++)
             {
-                matrix[idx*order + j] -= hold * matrix[i* order + j];
+                threadrow[j] -= hold * iterrow[j];
             }
         }
 
@@ -397,8 +398,16 @@ static void parseFileOnCPU(char * fileName, Result* resultSlot){
 static int countDifferent(double* arr1, double* arr2, int len,double tolerance){
     int c = 0;
     for (int i=0;i<len;i++){
-        if (fabs(arr1[i]-arr2[i])>tolerance)
-            c++;
+        if ( arr1[i]==0 ){
+            if ( fabs(arr1[i]-arr2[i]) >tolerance)
+                c++;
+        }
+        else{
+            if ( (fabs(arr1[i]-arr2[i])/arr1[i] ) >tolerance)
+                c++;
+       }
+
+            
     }
     return c;
 }
@@ -442,7 +451,7 @@ int main(int argc, char **argv)
     int totaldiff = 0;
     for (int i =0;i<cmdArgs.fileCount;i++){
         int diff = 0;
-        diff = countDifferent(results[i].determinants,resultsOnCPU[i].determinants,results[i].matrixCount,1e-6);
+        diff = countDifferent(results[i].determinants,resultsOnCPU[i].determinants,results[i].matrixCount,5e-7);
         totaldiff+=diff;
         if (diff)
             printf("Spotted %d different results at file %s\n",diff,cmdArgs.fileNames[i]);
