@@ -165,42 +165,37 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
         return matrix[0] * matrix[3] - matrix[1] * matrix[2]; // AD - BC
     }
     double determinant = 1;
-
     // turn matrix into a triangular form
-    for (int i = 0; i < order - 1; i++)
+    for (int i = 0; i < order; i++)
     {
         // if diagonal is 0 swap rows with another whose value in that column is not 0
         if (matrix[i * order + i] == 0)
         {
             int foundJ = 0;
             for (int j = i + 1; j < order; j++)
-                if (matrix[j * order + i] != 0)
+                if (matrix[j * order + i] != 0) //scan for row
                     foundJ = j;
             if (!foundJ)
                 return 0;
             determinant *= -1;
-            double tempRow[order];
+            double tempRow[order]; //swap row
             memcpy(tempRow, matrix + i * order, sizeof(double) * order);
             memcpy(matrix + i * order, matrix + foundJ * order, sizeof(double) * order);
             memcpy(matrix + foundJ * order, tempRow, sizeof(double) * order);
         }
-
-        // gaussian elimination
+        
+        // reduce matrix
         for (int k = i + 1; k < order; k++)
         {
-            double term = matrix[k * order + i] / matrix[i * order + i];
-            for (int j = 0; j < order; j++)
+            double hold = matrix[k * order + i] / matrix[i * order + i];
+            for (int j = i+1; j < order; j++)
             {
-                matrix[k * order + j] = matrix[k * order + j] - term * matrix[i * order + j];
+                matrix[k * order + j]-= hold * matrix[i * order + j];
             }
         }
-    }
-
-    // multiply diagonals of the triangular matrix
-    for (int i = 0; i < order; i++)
-    {
         determinant *= matrix[i * order + i];
     }
+
     return determinant;
 }
 
