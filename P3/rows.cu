@@ -272,7 +272,7 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
         if (idx>i){
             //REDUCE ALONG ROW
             hold = threadrow[i]/iterrow[i]; //A(k,i) /A(i,i)
-            for (int j = i; j < order; j++)
+            for (int j = i+1; j < order; j++) //we can safely ignore column I
             {
                 threadrow[j] -= hold * iterrow[j];
             }
