@@ -165,7 +165,6 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
         return matrix[0] * matrix[3] - matrix[1] * matrix[2]; // AD - BC
     }
     double determinant = 1;
-    double hold;
     // turn matrix into a triangular form
     for (int i = 0; i < order; i++)
     {
@@ -174,12 +173,12 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
         {
             int foundJ = 0;
             for (int j = i + 1; j < order; j++)
-                if (matrix[j * order + i] != 0)
+                if (matrix[j * order + i] != 0) //scan for row
                     foundJ = j;
             if (!foundJ)
                 return 0;
             determinant *= -1;
-            double tempRow[order];
+            double tempRow[order]; //swap row
             memcpy(tempRow, matrix + i * order, sizeof(double) * order);
             memcpy(matrix + i * order, matrix + foundJ * order, sizeof(double) * order);
             memcpy(matrix + foundJ * order, tempRow, sizeof(double) * order);
@@ -188,7 +187,7 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
         // reduce matrix
         for (int k = i + 1; k < order; k++)
         {
-            hold = matrix[k * order + i] / matrix[i * order + i];
+            double hold = matrix[k * order + i] / matrix[i * order + i];
             for (int j = i+1; j < order; j++)
             {
                 matrix[k * order + j]-= hold * matrix[i * order + j];
