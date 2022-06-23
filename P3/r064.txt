@@ -1,0 +1,100 @@
+Using Device 0: GeForce GTX 1660 Ti
+0.464299,0.030587,0
+Using Device 0: GeForce GTX 1660 Ti
+0.380949,0.029287,0
+Using Device 0: GeForce GTX 1660 Ti
+0.366084,0.029485,0
+Using Device 0: GeForce GTX 1660 Ti
+0.405855,0.030469,0
+Using Device 0: GeForce GTX 1660 Ti
+0.468714,0.029308,0
+Using Device 0: GeForce GTX 1660 Ti
+0.425166,0.030494,0
+Using Device 0: GeForce GTX 1660 Ti
+0.330192,0.030298,0
+Using Device 0: GeForce GTX 1660 Ti
+0.408029,0.029436,0
+Using Device 0: GeForce GTX 1660 Ti
+0.367647,0.029283,0
+Using Device 0: GeForce GTX 1660 Ti
+0.354500,0.029609,0
+Using Device 0: GeForce GTX 1660 Ti
+0.446263,0.030536,0
+Using Device 0: GeForce GTX 1660 Ti
+0.406171,0.030550,0
+Using Device 0: GeForce GTX 1660 Ti
+0.333464,0.030460,0
+Using Device 0: GeForce GTX 1660 Ti
+0.365006,0.029613,0
+Using Device 0: GeForce GTX 1660 Ti
+0.386430,0.030496,0
+Using Device 0: GeForce GTX 1660 Ti
+0.405568,0.030557,0
+Using Device 0: GeForce GTX 1660 Ti
+0.274444,0.030443,0
+Using Device 0: GeForce GTX 1660 Ti
+0.370357,0.029650,0
+Using Device 0: GeForce GTX 1660 Ti
+0.370904,0.029247,0
+Using Device 0: GeForce GTX 1660 Ti
+0.422478,0.030349,0
+Using Device 0: GeForce GTX 1660 Ti
+0.463394,0.029636,0
+Using Device 0: GeForce GTX 1660 Ti
+0.448281,0.030493,0
+Using Device 0: GeForce GTX 1660 Ti
+0.444836,0.030487,0
+Using Device 0: GeForce GTX 1660 Ti
+0.490522,0.030335,0
+Using Device 0: GeForce GTX 1660 Ti
+0.225918,0.030696,0
+Using Device 0: GeForce GTX 1660 Ti
+0.472077,0.030517,0
+Using Device 0: GeForce GTX 1660 Ti
+0.491195,0.029286,0
+Using Device 0: GeForce GTX 1660 Ti
+0.444299,0.030527,0
+Using Device 0: GeForce GTX 1660 Ti
+0.408174,0.029541,0
+Using Device 0: GeForce GTX 1660 Ti
+0.408864,0.050849,0
+Using Device 0: GeForce GTX 1660 Ti
+0.425042,0.030739,0
+Using Device 0: GeForce GTX 1660 Ti
+0.388957,0.029582,0
+Using Device 0: GeForce GTX 1660 Ti
+0.410058,0.030529,0
+Using Device 0: GeForce GTX 1660 Ti
+0.450040,0.029277,0
+Using Device 0: GeForce GTX 1660 Ti
+0.384666,0.029647,0
+Using Device 0: GeForce GTX 1660 Ti
+0.382161,0.029270,0
+Using Device 0: GeForce GTX 1660 Ti
+0.392160,0.030295,0
+Using Device 0: GeForce GTX 1660 Ti
+0.387705,0.029207,0
+Using Device 0: GeForce GTX 1660 Ti
+0.365704,0.030463,0
+Using Device 0: GeForce GTX 1660 Ti
+0.388349,0.030455,0
+Using Device 0: GeForce GTX 1660 Ti
+0.426261,0.030555,0
+Using Device 0: GeForce GTX 1660 Ti
+0.386693,0.029624,0
+Using Device 0: GeForce GTX 1660 Ti
+0.445299,0.030498,0
+Using Device 0: GeForce GTX 1660 Ti
+0.424286,0.029289,0
+Using Device 0: GeForce GTX 1660 Ti
+0.450266,0.030478,0
+Using Device 0: GeForce GTX 1660 Ti
+0.441416,0.030756,0
+Using Device 0: GeForce GTX 1660 Ti
+0.444336,0.029383,0
+Using Device 0: GeForce GTX 1660 Ti
+0.447353,0.029583,0
+Using Device 0: GeForce GTX 1660 Ti
+0.428980,0.030485,0
+Using Device 0: GeForce GTX 1660 Ti
+0.449958,0.030597,0
