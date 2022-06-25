@@ -173,8 +173,10 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
         {
             int foundJ = 0;
             for (int j = i + 1; j < order; j++)
-                if (matrix[j * order + i] != 0) //scan for row
+                if (matrix[j * order + i] != 0){ //scan for row
                     foundJ = j;
+                    break;
+                    }
             if (!foundJ)
                 return 0;
             determinant *= -1;
