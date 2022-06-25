@@ -235,13 +235,13 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
     for (short i=0;i<order;i++){
         double * itercolumn = matrix + i;
         if (itercolumn[i*order]==0){
-            
             short foundJ = 0;
-            for (short j = i + 1; j < order; j++) 
-                if (itercolumn[j*order] != 0) //this searches ROWS
+            for (short j = i + 1; j < order; j++){
+                if (itercolumn[j*order] != 0){ //this searches ROWS
                     foundJ = j;
                     break;
-            
+                    }
+            }
             if (!foundJ){ //no swap possible
                 if (idx==0){
                     determinants[bx]=0; //set value before exit

@@ -235,9 +235,9 @@ __global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants
             
             short foundJ = 0;
             for (short j = i + 1; j < order; j++) 
-                if (iterrow[j] != 0) //this searches COLUMNS
+                if (iterrow[j] != 0){ //this searches COLUMNS
                     foundJ = j;
-                    break;
+                    break;}
             
             if (!foundJ){ //no swap possible
                 if (idx==0){
