@@ -312,7 +312,7 @@ static void parseFile(char *fileName, Result *resultSlot)
     int order;
     fread(&order, 4, 1, file);
 
-    if (order * order * count + count > (size_t)5e9)
+    if ((size_t)order * (size_t)order * (size_t)count + (size_t)count > (size_t)5e9)
     {
         printf("File %s is bigger than we can handle, it will be ignored\n", fileName);
         fclose(file);
