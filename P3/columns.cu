@@ -8,7 +8,6 @@
  * @author Diogo Bento, nmec: 93391
  */
 
-
 #include "common.h"
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -17,7 +16,6 @@
 #include <libgen.h>
 #include <string.h>
 #include <time.h>
-
 
 /**
  * @brief Struct containing the command line argument values.
@@ -133,7 +131,7 @@ CMDArgs parseCMD(int argc, char *args[])
  * @param fileNames names of processed files
  * @param fileCount how many files were processed
  */
-static void printResults(char **fileNames, int fileCount, Result* results)
+static void printResults(char **fileNames, int fileCount, Result *results)
 {
     printf("%-50s %6s %30s\n", "File name", "Matrix", "Determinant");
     for (int i = 0; i < fileCount; i++)
@@ -144,7 +142,6 @@ static void printResults(char **fileNames, int fileCount, Result* results)
         }
     }
 }
-
 
 /**
  * @brief Calculates the determinant of a matrix through Gaussian elimination.
@@ -174,28 +171,29 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
         {
             int foundJ = 0;
             for (int j = i + 1; j < order; j++)
-                if (matrix[i * order + j] != 0){ //scan for column
+                if (matrix[i * order + j] != 0)
+                { // scan for column
                     foundJ = j;
                     break;
-                    }
+                }
             if (!foundJ)
                 return 0;
             determinant *= -1;
-            for (int swap=i;swap<order;swap++){ //swap column i, foundj
-                hold = matrix[i*order+swap];
-                matrix[i*order+swap] = matrix[foundJ*order+swap];
-                matrix[foundJ*order+swap] = hold;
+            for (int swap = i; swap < order; swap++)
+            { // swap column i, foundj
+                hold = matrix[i * order + swap];
+                matrix[i * order + swap] = matrix[foundJ * order + swap];
+                matrix[foundJ * order + swap] = hold;
             }
-
         }
-        
+
         // reduce matrix
         for (int j = i + 1; j < order; j++)
         {
             hold = matrix[i * order + j] / matrix[i * order + i]; //(i,j)/(i,i)
-            for (int k = i+1; k < order; k++)
+            for (int k = i + 1; k < order; k++)
             {
-                matrix[k * order + j]-= hold * matrix[k * order + i];
+                matrix[k * order + j] -= hold * matrix[k * order + i];
             }
         }
         determinant *= matrix[i * order + i];
@@ -204,95 +202,101 @@ static double calculateDeterminantOnCPU(int order, double *matrix)
     return determinant;
 }
 
-
-
 /**
  * @brief Function responsible for computing determinants on GPU
- * 
+ *
  * @param matrix pointer containing all matrixes
  * @param determinants pointer containing determinant slots
  * @param order size of matrices
  * @return
  */
-__global__ void calculateDeterminantsOnGPU(double *matrix, double * determinants, int order)
+__global__ void calculateDeterminantsOnGPU(double *matrix, double *determinants, int order)
 {
-    //matrix we are working with
-    unsigned int bx = blockIdx.x + gridDim.x * blockIdx.y + gridDim.x* gridDim.y* blockIdx.z;
-    //column we are working with
-    unsigned int idx = threadIdx.x+ blockDim.x* threadIdx.y + blockDim.x * blockDim.y * threadIdx.z;
+    // matrix we are working with
+    unsigned int bx = blockIdx.x + gridDim.x * blockIdx.y + gridDim.x * gridDim.y * blockIdx.z;
+    // column we are working with
+    unsigned int idx = threadIdx.x + blockDim.x * threadIdx.y + blockDim.x * blockDim.y * threadIdx.z;
 
-    //point at our matrix
-    matrix+=bx*order*order;
+    // point at our matrix
+    matrix += bx * order * order;
 
-    //point at our column
-    double * threadcolumn = matrix+ idx;
+    // point at our column
+    double *threadcolumn = matrix + idx;
 
     double hold;
 
-    //initialize relevant shared memory
-    if (idx == 0){
+    // initialize relevant shared memory
+    if (idx == 0)
+    {
         determinants[bx] = 1;
     }
-    
-    for (short i=0;i<order;i++){
-        double * itercolumn = matrix + i;
-        if (itercolumn[i*order]==0){
+
+    for (short i = 0; i < order; i++)
+    {
+        double *itercolumn = matrix + i;
+        if (itercolumn[i * order] == 0)
+        {
             short foundJ = 0;
-            for (short j = i + 1; j < order; j++){
-                if (itercolumn[j*order] != 0){ //this searches ROWS
+            for (short j = i + 1; j < order; j++)
+            {
+                if (itercolumn[j * order] != 0)
+                { // this searches ROWS
                     foundJ = j;
                     break;
-                    }
+                }
             }
-            if (!foundJ){ //no swap possible
-                if (idx==0){
-                    determinants[bx]=0; //set value before exit
+            if (!foundJ)
+            { // no swap possible
+                if (idx == 0)
+                {
+                    determinants[bx] = 0; // set value before exit
                 }
                 return;
             }
 
-            __syncthreads(); //SYNC POINT: WE KNOW WHAT SWAP IS REQUIRED
-            
-            if (idx>=i){
-            //perform swap by grabbing value from row OTHERJ, column COLUMN into row I column COLUMN
-            hold = threadcolumn[foundJ*order];
-            threadcolumn[foundJ*order] =  threadcolumn[i*order];
-            threadcolumn[i*order] = hold;
-            }
+            __syncthreads(); // SYNC POINT: WE KNOW WHAT SWAP IS REQUIRED
 
-
-            __syncthreads(); //SYNC POINT: SWAPS HAVE BEEN PERFORMED
-            if (idx==i){
-                determinants[bx]*=-1;
-            }
-        }
-        if (idx==i){
-                determinants[bx]*=threadcolumn[idx*order];
-            }
-        if (idx>i){
-            //REDUCE ALONG COLUMN
-            hold = threadcolumn[i*order]/itercolumn[i*order]; //A(i,j) /A(i,i)
-            for (int k = i+1; k < order; k++)
+            if (idx >= i)
             {
-                threadcolumn[k*order] -= hold * itercolumn[k*order];
+                // perform swap by grabbing value from row OTHERJ, column COLUMN into row I column COLUMN
+                hold = threadcolumn[foundJ * order];
+                threadcolumn[foundJ * order] = threadcolumn[i * order];
+                threadcolumn[i * order] = hold;
+            }
+
+            __syncthreads(); // SYNC POINT: SWAPS HAVE BEEN PERFORMED
+
+            if (idx == i)
+            {
+                determinants[bx] *= -1;
+            }
+        }
+        if (idx == i)
+        {
+            determinants[bx] *= threadcolumn[idx * order];
+        }
+        if (idx > i)
+        {
+            // REDUCE ALONG COLUMN
+            hold = threadcolumn[i * order] / itercolumn[i * order]; // A(i,j) /A(i,i)
+            for (int k = i + 1; k < order; k++)
+            {
+                threadcolumn[k * order] -= hold * itercolumn[k * order];
             }
         }
 
-        __syncthreads(); //SYNC POINT: REDUCE IS DONE
-            
+        __syncthreads(); // SYNC POINT: REDUCE IS DONE
     }
-
-
 }
 
 /**
  * @brief Parses file contents and calculates determinants on GPU
- * 
+ *
  * @param fileName Name of file to handle
  * @param resultSlot Results object to write to
  */
-static void parseFile(char * fileName, Result* resultSlot){
-
+static void parseFile(char *fileName, Result *resultSlot)
+{
     FILE *file = fopen(fileName, "rb");
     // if file is a dud
     if (file == NULL)
@@ -308,56 +312,54 @@ static void parseFile(char * fileName, Result* resultSlot){
     int order;
     fread(&order, 4, 1, file);
 
-    if (order*order*count+count>(size_t) 5e9){
-        printf("File %s is bigger than we can handle, it will be ignored\n",fileName);
+    if (order * order * count + count > (size_t)5e9)
+    {
+        printf("File %s is bigger than we can handle, it will be ignored\n", fileName);
         fclose(file);
         (*resultSlot).matrixCount = 0;
         return;
-
     }
-    
-    //initialize results object
+
+    // initialize results object
     (*resultSlot).matrixCount = count;
-    (*resultSlot).determinants = (double *) malloc(sizeof(double)*count);
-    double * determinantsOnGPU;
-    CHECK(cudaMalloc((void **)&determinantsOnGPU, sizeof(double)*count));
+    (*resultSlot).determinants = (double *)malloc(sizeof(double) * count);
+    double *determinantsOnGPU;
+    CHECK(cudaMalloc((void **)&determinantsOnGPU, sizeof(double) * count));
 
     int memsize = order * order * count * sizeof(double);
-    
-    double * matrixOnGPU;
-    double * matrix = (double *) malloc(memsize);
+
+    double *matrixOnGPU;
+    double *matrix = (double *)malloc(memsize);
     CHECK(cudaMalloc((void **)&matrixOnGPU, memsize));
-    
+
     dim3 block(order, 1);
     dim3 grid(count);
-    
 
     fread(matrix, 8, memsize, file);
     CHECK(cudaMemcpy(matrixOnGPU, matrix, memsize, cudaMemcpyHostToDevice));
     calculateDeterminantsOnGPU<<<grid, block>>>(matrixOnGPU, determinantsOnGPU, order);
     CHECK(cudaDeviceSynchronize());
     CHECK(cudaGetLastError());
-            
-    //copy results out of device
-    CHECK(cudaMemcpy((*resultSlot).determinants ,determinantsOnGPU,  count*sizeof(double) , cudaMemcpyDeviceToHost));
-    
-    //free memory
+
+    // copy results out of device
+    CHECK(cudaMemcpy((*resultSlot).determinants, determinantsOnGPU, count * sizeof(double), cudaMemcpyDeviceToHost));
+
+    // free memory
     CHECK(cudaFree(determinantsOnGPU));
     CHECK(cudaFree(matrixOnGPU));
     fclose(file);
     free(matrix);
 }
 
-
 /**
  * @brief Parses file contents and calculates determinants on CPU
  * Used for comparison purposes
- * 
+ *
  * @param fileName Name of file to handle
  * @param resultSlot Results object to write to
  */
-static void parseFileOnCPU(char * fileName, Result* resultSlot){
-
+static void parseFileOnCPU(char *fileName, Result *resultSlot)
+{
     FILE *file = fopen(fileName, "rb");
     // if file is a dud
     if (file == NULL)
@@ -372,49 +374,51 @@ static void parseFileOnCPU(char * fileName, Result* resultSlot){
     // order of the matrices in the file
     int order;
     fread(&order, 4, 1, file);
-    
-    //initialize results object
+
+    // initialize results object
     (*resultSlot).matrixCount = count;
-    (*resultSlot).determinants = (double *) malloc(sizeof(double)*count);
-   
-    double * matrix = (double *) malloc(order*order*sizeof(double));
-    for (int i =0;i<count;i++){
-        fread(matrix, 8, order*order, file);
-        resultSlot->determinants[i] = calculateDeterminantOnCPU(order,matrix);
+    (*resultSlot).determinants = (double *)malloc(sizeof(double) * count);
+
+    double *matrix = (double *)malloc(order * order * sizeof(double));
+    for (int i = 0; i < count; i++)
+    {
+        fread(matrix, 8, order * order, file);
+        resultSlot->determinants[i] = calculateDeterminantOnCPU(order, matrix);
     }
     fclose(file);
     free(matrix);
 }
 
 /**
- * @brief Count number of different elements between 2 arrays 
- * 
+ * @brief Count number of different elements between 2 arrays
+ *
  * @param arr1 First array
  * @param arr2 Second array
  * @param len Length of arrays
  * @param tolerance Maximum value difference
  * @return int Number of different data points
  */
-static int countDifferent(double* arr1, double* arr2, int len,double tolerance){
+static int countDifferent(double *arr1, double *arr2, int len, double tolerance)
+{
     int c = 0;
-    for (int i=0;i<len;i++){
-        if ( arr1[i]==0 ){
-            if ( fabs(arr1[i]-arr2[i]) >tolerance)
+    for (int i = 0; i < len; i++)
+    {
+        if (arr1[i] == 0)
+        {
+            if (fabs(arr1[i] - arr2[i]) > tolerance)
                 c++;
         }
-        else{
-            if ( (fabs(arr1[i]-arr2[i])/arr1[i] ) >tolerance)
+        else
+        {
+            if ((fabs(arr1[i] - arr2[i]) / arr1[i]) > tolerance)
                 c++;
-       }
-
-            
+        }
     }
     return c;
 }
 
 int main(int argc, char **argv)
 {
-
     struct timespec start, finish; // time measurement
 
     CMDArgs cmdArgs = parseCMD(argc, argv);
@@ -427,39 +431,42 @@ int main(int argc, char **argv)
     CHECK(cudaGetDeviceProperties(&deviceProp, dev));
     printf("Using Device %d: %s\n", dev, deviceProp.name);
     CHECK(cudaSetDevice(dev));
-    
-    Result * results = (Result *) malloc( sizeof(Result)*cmdArgs.fileCount);
+
+    Result *results = (Result *)malloc(sizeof(Result) * cmdArgs.fileCount);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
 
-    for (int i =0;i<cmdArgs.fileCount;i++){
-        parseFile(cmdArgs.fileNames[i],results+i);
+    for (int i = 0; i < cmdArgs.fileCount; i++)
+    {
+        parseFile(cmdArgs.fileNames[i], results + i);
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
-    printResults(cmdArgs.fileNames,cmdArgs.fileCount,results);
+    printResults(cmdArgs.fileNames, cmdArgs.fileCount, results);
     printf("\nElapsed time on GPU = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
-    
 
-    Result * resultsOnCPU = (Result *) malloc( sizeof(Result)*cmdArgs.fileCount);
+    Result *resultsOnCPU = (Result *)malloc(sizeof(Result) * cmdArgs.fileCount);
     clock_gettime(CLOCK_MONOTONIC_RAW, &start); // begin time measurement
-   for (int i =0;i<cmdArgs.fileCount;i++){
-        parseFileOnCPU(cmdArgs.fileNames[i],resultsOnCPU+i);
+    for (int i = 0; i < cmdArgs.fileCount; i++)
+    {
+        parseFileOnCPU(cmdArgs.fileNames[i], resultsOnCPU + i);
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &finish); // end time measurement
     printf("Elapsed time on CPU = %.6f s\n", (finish.tv_sec - start.tv_sec) / 1.0 + (finish.tv_nsec - start.tv_nsec) / 1000000000.0);
-    
+
     int totaldiff = 0;
-    for (int i =0;i<cmdArgs.fileCount;i++){
+    for (int i = 0; i < cmdArgs.fileCount; i++)
+    {
         int diff = 0;
-        diff = countDifferent(results[i].determinants,resultsOnCPU[i].determinants,results[i].matrixCount,5e-7);
-        totaldiff+=diff;
+        diff = countDifferent(results[i].determinants, resultsOnCPU[i].determinants, results[i].matrixCount, 5e-7);
+        totaldiff += diff;
         if (diff)
-            printf("Spotted %d different results at file %s\n",diff,cmdArgs.fileNames[i]);
+            printf("Spotted %d different results at file %s\n", diff, cmdArgs.fileNames[i]);
     }
     if (!totaldiff)
         printf("\nAll values are the same between CPU and GPU\n");
     free(cmdArgs.fileNames);
-    for (int i =0;i<cmdArgs.fileCount;i++){
+    for (int i = 0; i < cmdArgs.fileCount; i++)
+    {
         if (results[i].matrixCount)
             free(results[i].determinants);
         if (resultsOnCPU[i].matrixCount)
@@ -467,10 +474,8 @@ int main(int argc, char **argv)
     }
     free(results);
     free(resultsOnCPU);
-    
+
     CHECK(cudaDeviceReset());
 
     return (0);
-
 }
-
